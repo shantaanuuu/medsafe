@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'shared_widgets.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/api_service.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -28,6 +30,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await prefs.setString('user_role', _selectedRole);
     await prefs.setString('user_lang', _selectedLanguage);
     await prefs.setBool('onboarding_completed', true);
+
+    // Sync to SQLite Backend using ApiService
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final apiService = ref.read(apiServiceProvider);
+        await apiService.syncUser(
+          user.uid,
+          email: user.email,
+          role: _selectedRole,
+          username: user.displayName ?? '',
+        );
+      } catch (e) {
+        debugPrint("ONBOARDING SYNC ERROR: $e");
+      }
+    }
 
     if (mounted) {
       // Re-trigger the auth wrapper or push direct cabinet

@@ -433,6 +433,8 @@ class MedicineDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildClinicalInfoCard(AccessibilityConfig access) {
+    final hasDbData = medicine.manufacturer != null || medicine.substitutes != null;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(access.scaleSpacing(16.0)),
@@ -445,7 +447,7 @@ class MedicineDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Approved FDA Labeling Highlights',
+            hasDbData ? 'Database Verification & Metadata' : 'Approved FDA Labeling Highlights',
             style: access.getTextStyle(
               baseSize: 14.0,
               fontWeight: FontWeight.bold,
@@ -453,11 +455,127 @@ class MedicineDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildBulletPoint('Do not exceed the maximum daily dosage ranges.', access),
-          const SizedBox(height: 8),
-          _buildBulletPoint('Consult with a medical professional if symptoms persist.', access),
-          const SizedBox(height: 8),
-          _buildBulletPoint('Store in a cool, dry place away from direct sunlight.', access),
+          if (hasDbData) ...[
+            if (medicine.manufacturer != null) ...[
+              _buildMetaRow('Manufacturer', medicine.manufacturer!, access),
+              const SizedBox(height: 8),
+            ],
+            if (medicine.price != null && medicine.price! > 0) ...[
+              _buildMetaRow('MRP (Price)', '₹ ${medicine.price!.toStringAsFixed(2)}', access),
+              const SizedBox(height: 8),
+            ],
+            if (medicine.therapeuticClass != null && medicine.therapeuticClass!.isNotEmpty) ...[
+              _buildMetaRow('Therapeutic Class', medicine.therapeuticClass!, access),
+              const SizedBox(height: 8),
+            ],
+            if (medicine.chemicalClass != null && medicine.chemicalClass!.isNotEmpty) ...[
+              _buildMetaRow('Chemical Class', medicine.chemicalClass!, access),
+              const SizedBox(height: 8),
+            ],
+            if (medicine.habitForming != null && medicine.habitForming!.isNotEmpty) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Habit Forming: ',
+                    style: access.getTextStyle(baseSize: 13.0, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    medicine.habitForming!,
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      fontWeight: FontWeight.bold,
+                      color: medicine.habitForming!.toLowerCase() == 'yes' ? access.alertRed : access.successGreen,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (medicine.medicineDesc != null && medicine.medicineDesc!.isNotEmpty) ...[
+              Text(
+                'Description:',
+                style: access.getTextStyle(baseSize: 13.0, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                medicine.medicineDesc!,
+                style: access.getTextStyle(baseSize: 12.0, color: access.textColor.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (medicine.substitutes != null && medicine.substitutes!.isNotEmpty) ...[
+              const Divider(height: 32),
+              Row(
+                children: [
+                  Icon(Icons.swap_horiz_rounded, color: access.primaryTeal, size: access.scaleText(20.0)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'ALTERNATIVE SUBSTITUTES',
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      fontWeight: FontWeight.w900,
+                      color: access.primaryTeal,
+                    ).copyWith(letterSpacing: 1.1),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 10.0,
+                children: medicine.substitutes!
+                    .split(',')
+                    .map((sub) => sub.trim())
+                    .where((sub) => sub.isNotEmpty)
+                    .map((subName) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDFA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: access.primaryTeal.withOpacity(0.15),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.medication_outlined,
+                          size: access.scaleText(16.0),
+                          color: access.primaryTeal,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          subName,
+                          style: access.getTextStyle(
+                            baseSize: 13.0,
+                            fontWeight: FontWeight.bold,
+                            color: access.textColor.withOpacity(0.85),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ] else ...[
+            _buildBulletPoint('Do not exceed the maximum daily dosage ranges.', access),
+            const SizedBox(height: 8),
+            _buildBulletPoint('Consult with a medical professional if symptoms persist.', access),
+            const SizedBox(height: 8),
+            _buildBulletPoint('Store in a cool, dry place away from direct sunlight.', access),
+          ],
         ],
       ),
     );

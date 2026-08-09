@@ -3,11 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'shared_widgets.dart';
+import 'models/medicine_model.dart';
 
 class AddMedicineOcrScreen extends ConsumerStatefulWidget {
   final String? mockImageName;
+  final MedicineModel? prefilledMedicine;
 
-  const AddMedicineOcrScreen({super.key, this.mockImageName});
+  const AddMedicineOcrScreen({
+    super.key,
+    this.mockImageName,
+    this.prefilledMedicine,
+  });
 
   @override
   ConsumerState<AddMedicineOcrScreen> createState() => _AddMedicineOcrScreenState();
@@ -20,6 +26,7 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
   final _dosageController = TextEditingController();
   final _batchController = TextEditingController();
   final _expiryController = TextEditingController();
+  final _substitutesController = TextEditingController();
 
   bool _isProcessingImage = true;
   double _ocrConfidence = 0.89; // 89% confidence level simulation
@@ -27,7 +34,39 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
   @override
   void initState() {
     super.initState();
-    _simulateOcrProcessing();
+    if (widget.prefilledMedicine != null) {
+      final med = widget.prefilledMedicine!;
+      _nameController.text = med.brandName ?? '';
+      _genericController.text = med.genericName ?? '';
+      _dosageController.text = med.strength ?? 'Tablet';
+      _batchController.text = med.batchNumber ?? '';
+      _substitutesController.text = med.substitutes ?? '';
+      
+      // Parse expiry date format (e.g. MM/YY or MM/YYYY)
+      String formattedExpiry = '';
+      if (med.expiryDate != null) {
+        final cleaned = med.expiryDate!.replaceAll(RegExp(r'[^0-9/-]'), '');
+        final parts = cleaned.split(RegExp(r'[/-]'));
+        if (parts.length == 2) {
+          final month = int.tryParse(parts[0]);
+          final year = int.tryParse(parts[1]);
+          if (month != null && year != null) {
+            final fullYear = year < 100 ? 2000 + year : year;
+            formattedExpiry = '$fullYear-${month.toString().padLeft(2, '0')}-01';
+          }
+        }
+      }
+      
+      if (formattedExpiry.isEmpty) {
+        final futureDate = DateTime.now().add(const Duration(days: 90));
+        formattedExpiry = '${futureDate.year}-${futureDate.month.toString().padLeft(2, '0')}-${futureDate.day.toString().padLeft(2, '0')}';
+      }
+      
+      _expiryController.text = formattedExpiry;
+      _isProcessingImage = false;
+    } else {
+      _simulateOcrProcessing();
+    }
   }
 
   void _simulateOcrProcessing() {
@@ -38,6 +77,7 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
         _genericController.text = 'Metformin Hydrochloride';
         _dosageController.text = 'Tablet';
         _batchController.text = 'MF-22119';
+        _substitutesController.text = '';
         // Mock expiry date format: YYYY-MM-DD
         final futureDate = DateTime.now().add(const Duration(days: 45));
         _expiryController.text = '${futureDate.year}-${futureDate.month.toString().padLeft(2, '0')}-${futureDate.day.toString().padLeft(2, '0')}';
@@ -77,6 +117,15 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       addedDate: DateTime.now(),
       dosageForm: _dosageController.text.trim(),
       verifiedSource: VerifiedSource.ocr,
+      price: widget.prefilledMedicine?.mrp != null ? double.tryParse(widget.prefilledMedicine!.mrp!) : null,
+      manufacturer: widget.prefilledMedicine?.manufacturer,
+      sideEffects: widget.prefilledMedicine?.sideEffects,
+      drugInteractions: widget.prefilledMedicine?.drugInteractions,
+      medicineDesc: widget.prefilledMedicine?.medicineDesc,
+      substitutes: _substitutesController.text.trim().isEmpty ? null : _substitutesController.text.trim(),
+      chemicalClass: widget.prefilledMedicine?.chemicalClass,
+      therapeuticClass: widget.prefilledMedicine?.therapeuticClass,
+      habitForming: widget.prefilledMedicine?.habitForming,
     );
 
     // Save to provider
@@ -178,10 +227,18 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                           VoiceInputField(
                             access: access,
                             controller: _genericController,
-                            labelText: 'Generic Name',
+                            labelText: 'Generic Name (Optional)',
                             icon: Icons.science_outlined,
                             mockTranscript: 'Metformin Hydrochloride',
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Enter generic name' : null,
+                          ),
+                          const SizedBox(height: 16),
+
+                          VoiceInputField(
+                            access: access,
+                            controller: _substitutesController,
+                            labelText: 'Alternative Substitutes (Optional)',
+                            icon: Icons.swap_horiz_rounded,
+                            mockTranscript: 'Obimet 500, Glycomet 500',
                           ),
                           const SizedBox(height: 16),
 

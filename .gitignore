@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Large data files
+medicine_dataset.csv
+updated_indian_medicine_data.csv

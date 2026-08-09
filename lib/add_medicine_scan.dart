@@ -4,6 +4,8 @@ import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'shared_widgets.dart';
 import 'add_medicine_ocr.dart';
+import 'screens/camera_screen.dart';
+import 'models/medicine_model.dart';
 
 class AddMedicineScanScreen extends ConsumerStatefulWidget {
   const AddMedicineScanScreen({super.key});
@@ -256,13 +258,22 @@ class _AddMedicineScanScreenState extends ConsumerState<AddMedicineScanScreen> w
 
                   // Alternative Action: Redirect to OCR Scanner fallback
                   OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pushReplacement(
+                    onPressed: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AddMedicineOcrScreen(),
+                          builder: (context) => const CameraScreen(),
                         ),
                       );
+                      
+                      if (result != null && result is MedicineModel && context.mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddMedicineOcrScreen(prefilledMedicine: result),
+                          ),
+                        );
+                      }
                     },
                     icon: Icon(Icons.document_scanner_outlined, size: access.scaleText(18.0), color: Colors.white),
                     label: Text(

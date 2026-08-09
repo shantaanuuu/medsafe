@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/api_service.dart';
+import 'models/medicine_model.dart';
 
 // --- DATA MODELS ---
 
@@ -18,6 +21,17 @@ class Medicine {
   final String dosageForm;
   final String? linkedPrescriptionId;
   final VerifiedSource verifiedSource;
+  
+  // Database enriched fields
+  final double? price;
+  final String? manufacturer;
+  final String? sideEffects;
+  final String? drugInteractions;
+  final String? medicineDesc;
+  final String? substitutes;
+  final String? chemicalClass;
+  final String? therapeuticClass;
+  final String? habitForming;
 
   Medicine({
     required this.id,
@@ -31,6 +45,15 @@ class Medicine {
     required this.dosageForm,
     this.linkedPrescriptionId,
     required this.verifiedSource,
+    this.price,
+    this.manufacturer,
+    this.sideEffects,
+    this.drugInteractions,
+    this.medicineDesc,
+    this.substitutes,
+    this.chemicalClass,
+    this.therapeuticClass,
+    this.habitForming,
   });
 
   Map<String, dynamic> toJson() => {
@@ -45,20 +68,38 @@ class Medicine {
         'dosageForm': dosageForm,
         'linkedPrescriptionId': linkedPrescriptionId,
         'verifiedSource': verifiedSource.index,
+        'price': price,
+        'manufacturer': manufacturer,
+        'sideEffects': sideEffects,
+        'drugInteractions': drugInteractions,
+        'medicineDesc': medicineDesc,
+        'substitutes': substitutes,
+        'chemicalClass': chemicalClass,
+        'therapeuticClass': therapeuticClass,
+        'habitForming': habitForming,
       };
 
   factory Medicine.fromJson(Map<String, dynamic> json) => Medicine(
-        id: json['id'],
-        name: json['name'],
-        genericName: json['genericName'],
-        ndcCode: json['ndcCode'],
-        barcode: json['barcode'],
-        batchNumber: json['batchNumber'],
-        expiryDate: DateTime.parse(json['expiryDate']),
-        addedDate: DateTime.parse(json['addedDate']),
-        dosageForm: json['dosageForm'],
-        linkedPrescriptionId: json['linkedPrescriptionId'],
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        genericName: json['genericName']?.toString() ?? '',
+        ndcCode: json['ndcCode']?.toString(),
+        barcode: json['barcode']?.toString(),
+        batchNumber: json['batchNumber']?.toString(),
+        expiryDate: json['expiryDate'] != null ? DateTime.parse(json['expiryDate']) : DateTime.now(),
+        addedDate: json['addedDate'] != null ? DateTime.parse(json['addedDate']) : DateTime.now(),
+        dosageForm: json['dosageForm']?.toString() ?? '',
+        linkedPrescriptionId: json['linkedPrescriptionId']?.toString(),
         verifiedSource: VerifiedSource.values[json['verifiedSource'] ?? 2],
+        price: json['price'] != null ? double.tryParse(json['price'].toString()) : null,
+        manufacturer: json['manufacturer']?.toString(),
+        sideEffects: json['sideEffects']?.toString(),
+        drugInteractions: json['drugInteractions']?.toString(),
+        medicineDesc: json['medicineDesc']?.toString(),
+        substitutes: json['substitutes']?.toString(),
+        chemicalClass: json['chemicalClass']?.toString(),
+        therapeuticClass: json['therapeuticClass']?.toString(),
+        habitForming: json['habitForming']?.toString(),
       );
 }
 
@@ -101,15 +142,61 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
   List<Medicine> build() {
     final prefs = ref.watch(sharedPreferencesProvider);
     final cached = prefs.getString('medicine_cabinet');
+    List<Medicine> localList = [];
     if (cached != null) {
       try {
         final List decoded = jsonDecode(cached);
-        return decoded.map((item) => Medicine.fromJson(item)).toList();
+        localList = decoded.map((item) => Medicine.fromJson(item)).toList();
       } catch (_) {
-        return _getMockData();
+        localList = _getMockData();
       }
+    } else {
+      localList = _getMockData();
     }
-    return _getMockData();
+
+    // Trigger async SQL backend pull if user is logged in
+    _syncFromBackend();
+
+    return localList;
+  }
+
+  Future<void> _syncFromBackend() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final List<MedicineModel> dbList = await apiService.getCabinet(user.uid);
+
+      if (dbList.isNotEmpty) {
+        final List<Medicine> localList = dbList.map((m) {
+          return Medicine(
+            id: m.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            name: m.brandName ?? '',
+            genericName: m.genericName ?? '',
+            batchNumber: m.batchNumber,
+            expiryDate: m.expiryDate != null ? DateTime.parse(m.expiryDate!) : DateTime.now(),
+            addedDate: m.manufacturingDate != null ? DateTime.parse(m.manufacturingDate!) : DateTime.now(),
+            dosageForm: m.strength ?? 'Tablet',
+            verifiedSource: VerifiedSource.ocr,
+            price: m.mrp != null ? double.tryParse(m.mrp!) : null,
+            manufacturer: m.manufacturer,
+            sideEffects: m.sideEffects,
+            drugInteractions: m.drugInteractions,
+            medicineDesc: m.medicineDesc,
+            substitutes: m.substitutes,
+            chemicalClass: m.chemicalClass,
+            therapeuticClass: m.therapeuticClass,
+            habitForming: m.habitForming,
+          );
+        }).toList();
+
+        state = localList;
+        _saveToPrefs();
+      }
+    } catch (e) {
+      print("SQL CABINET SYNC ERROR: $e");
+    }
   }
 
   List<Medicine> _getMockData() {
@@ -148,22 +235,59 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
         verifiedSource: VerifiedSource.barcode,
       ),
     ];
-    // Cache mock data immediately
-    final prefs = ref.read(sharedPreferencesProvider);
-    final encoded = jsonEncode(mockData.map((m) => m.toJson()).toList());
-    prefs.setString('medicine_cabinet', encoded);
     
     return mockData;
   }
 
-  void addMedicine(Medicine med) {
+  void addMedicine(Medicine med) async {
     state = [...state, med];
     _saveToPrefs();
+    
+    // Sync to backend SQLite
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final apiService = ref.read(apiServiceProvider);
+        final model = MedicineModel(
+          id: med.id,
+          brandName: med.name,
+          genericName: med.genericName,
+          strength: med.dosageForm,
+          expiryDate: med.expiryDate.toIso8601String(),
+          manufacturingDate: med.addedDate.toIso8601String(),
+          batchNumber: med.batchNumber,
+          mrp: med.price?.toString(),
+          manufacturer: med.manufacturer,
+          sideEffects: med.sideEffects,
+          drugInteractions: med.drugInteractions,
+          medicineDesc: med.medicineDesc,
+          substitutes: med.substitutes,
+          chemicalClass: med.chemicalClass,
+          therapeuticClass: med.therapeuticClass,
+          habitForming: med.habitForming,
+          verifiedSource: med.verifiedSource.index,
+        );
+        await apiService.addMedicineToCabinet(user.uid, model);
+      } catch (e) {
+        print("SQL CABINET ADD ERROR: $e");
+      }
+    }
   }
 
-  void removeMedicine(String id) {
+  void removeMedicine(String id) async {
     state = state.where((m) => m.id != id).toList();
     _saveToPrefs();
+
+    // Sync to backend SQLite
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final apiService = ref.read(apiServiceProvider);
+        await apiService.removeMedicineFromCabinet(user.uid, id);
+      } catch (e) {
+        print("SQL CABINET DELETE ERROR: $e");
+      }
+    }
   }
 
   void _saveToPrefs() {
