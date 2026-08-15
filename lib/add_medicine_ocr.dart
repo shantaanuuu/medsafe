@@ -27,6 +27,9 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
   final _batchController = TextEditingController();
   final _expiryController = TextEditingController();
   final _substitutesController = TextEditingController();
+  final _nicknameController = TextEditingController();
+  final _quantityController = TextEditingController();
+  final _scheduleController = TextEditingController();
 
   bool _isProcessingImage = true;
   double _ocrConfidence = 0.89; // 89% confidence level simulation
@@ -42,17 +45,33 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       _batchController.text = med.batchNumber ?? '';
       _substitutesController.text = med.substitutes ?? '';
       
-      // Parse expiry date format (e.g. MM/YY or MM/YYYY)
+      // Parse expiry date format (ISO format, DD-MM-YYYY, MM/YY or MM/YYYY)
       String formattedExpiry = '';
       if (med.expiryDate != null) {
-        final cleaned = med.expiryDate!.replaceAll(RegExp(r'[^0-9/-]'), '');
-        final parts = cleaned.split(RegExp(r'[/-]'));
-        if (parts.length == 2) {
-          final month = int.tryParse(parts[0]);
-          final year = int.tryParse(parts[1]);
-          if (month != null && year != null) {
-            final fullYear = year < 100 ? 2000 + year : year;
-            formattedExpiry = '$fullYear-${month.toString().padLeft(2, '0')}-01';
+        final parsed = DateTime.tryParse(med.expiryDate!);
+        if (parsed != null) {
+          formattedExpiry = '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+        } else {
+          final cleaned = med.expiryDate!.replaceAll(RegExp(r'[^0-9/-]'), '').trim();
+          final parts = cleaned.split(RegExp(r'[/-]'));
+          if (parts.length == 2) {
+            final month = int.tryParse(parts[0]);
+            final year = int.tryParse(parts[1]);
+            if (month != null && year != null) {
+              final fullYear = year < 100 ? 2000 + year : year;
+              formattedExpiry = '$fullYear-${month.toString().padLeft(2, '0')}-01';
+            }
+          } else if (parts.length == 3) {
+            final p0 = int.tryParse(parts[0]);
+            final p1 = int.tryParse(parts[1]);
+            final p2 = int.tryParse(parts[2]);
+            if (p0 != null && p1 != null && p2 != null) {
+              if (p0 > 1000) {
+                formattedExpiry = '$p0-${p1.toString().padLeft(2, '0')}-${p2.toString().padLeft(2, '0')}';
+              } else if (p2 > 1000) {
+                formattedExpiry = '$p2-${p1.toString().padLeft(2, '0')}-${p0.toString().padLeft(2, '0')}';
+              }
+            }
           }
         }
       }
@@ -63,6 +82,11 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       }
       
       _expiryController.text = formattedExpiry;
+      _nicknameController.text = med.nickname ?? '';
+      if (med.quantity != null) {
+        _quantityController.text = med.quantity.toString();
+      }
+      _scheduleController.text = med.dosageSchedule ?? '';
       _isProcessingImage = false;
     } else {
       _simulateOcrProcessing();
@@ -93,6 +117,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
     _dosageController.dispose();
     _batchController.dispose();
     _expiryController.dispose();
+    _substitutesController.dispose();
+    _nicknameController.dispose();
+    _quantityController.dispose();
+    _scheduleController.dispose();
     super.dispose();
   }
 
@@ -108,15 +136,18 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       expiryDate = DateTime.now().add(const Duration(days: 30));
     }
 
+    final double? quantity = double.tryParse(_quantityController.text.trim());
     final newMed = Medicine(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.prefilledMedicine?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
       genericName: _genericController.text.trim(),
       batchNumber: _batchController.text.trim().isEmpty ? null : _batchController.text.trim(),
       expiryDate: expiryDate,
       addedDate: DateTime.now(),
       dosageForm: _dosageController.text.trim(),
-      verifiedSource: VerifiedSource.ocr,
+      verifiedSource: widget.prefilledMedicine?.verifiedSource != null
+          ? VerifiedSource.values[widget.prefilledMedicine!.verifiedSource!]
+          : VerifiedSource.ocr,
       price: widget.prefilledMedicine?.mrp != null ? double.tryParse(widget.prefilledMedicine!.mrp!) : null,
       manufacturer: widget.prefilledMedicine?.manufacturer,
       sideEffects: widget.prefilledMedicine?.sideEffects,
@@ -126,6 +157,9 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       chemicalClass: widget.prefilledMedicine?.chemicalClass,
       therapeuticClass: widget.prefilledMedicine?.therapeuticClass,
       habitForming: widget.prefilledMedicine?.habitForming,
+      nickname: _nicknameController.text.trim().isEmpty ? null : _nicknameController.text.trim(),
+      quantity: quantity,
+      dosageSchedule: _scheduleController.text.trim().isEmpty ? null : _scheduleController.text.trim(),
     );
 
     // Save to provider
@@ -261,9 +295,31 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Expiry Date Field
+                           // Expiry Date Field
                           TextFormField(
                             controller: _expiryController,
+                            readOnly: true,
+                            onTap: () async {
+                              DateTime parsedInitial = DateTime.now().add(const Duration(days: 90));
+                              final existingText = _expiryController.text.trim();
+                              if (existingText.isNotEmpty) {
+                                final parsed = DateTime.tryParse(existingText);
+                                if (parsed != null) {
+                                  parsedInitial = parsed;
+                                }
+                              }
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: parsedInitial,
+                                firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                lastDate: DateTime.now().add(const Duration(days: 3650)),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  _expiryController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                });
+                              }
+                            },
                             style: access.getTextStyle(baseSize: 15.0),
                             decoration: InputDecoration(
                               labelText: 'Expiry Date (YYYY-MM-DD)',
@@ -297,6 +353,54 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               }
                               return null;
                             },
+                          ),
+                          const SizedBox(height: 16),
+
+                          VoiceInputField(
+                            access: access,
+                            controller: _nicknameController,
+                            labelText: 'Medicine Nickname (Optional)',
+                            icon: Icons.bookmark_border_rounded,
+                            mockTranscript: 'Morning BP Pill',
+                          ),
+                          const SizedBox(height: 16),
+
+                          TextFormField(
+                            controller: _quantityController,
+                            keyboardType: TextInputType.number,
+                            style: access.getTextStyle(baseSize: 15.0),
+                            decoration: InputDecoration(
+                              labelText: 'Quantity / Pack Size (Optional)',
+                              labelStyle: access.getTextStyle(
+                                baseSize: 14.0,
+                                color: access.textColor.withOpacity(0.6),
+                              ),
+                              prefixIcon: Icon(
+                                Icons.numbers_rounded,
+                                color: access.textColor.withOpacity(0.6),
+                                size: access.scaleText(20.0),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          VoiceInputField(
+                            access: access,
+                            controller: _scheduleController,
+                            labelText: 'Dosage Schedule (Optional)',
+                            icon: Icons.schedule_rounded,
+                            mockTranscript: 'Once daily after breakfast',
                           ),
                           const SizedBox(height: 32),
 

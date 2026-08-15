@@ -47,3 +47,16 @@ app.*.map.json
 # Large data files
 medicine_dataset.csv
 updated_indian_medicine_data.csv
+
+# Firebase / Secret Files / Local Environment
+**/google-services.json
+**/GoogleService-Info.plist
+**/.env
+.env
+
+# Backend uploads
+med2/Medsafe/backend/uploads/
+
+# Flutter DevTools options
+devtools_options.yaml
+

@@ -4,6 +4,10 @@ import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'shared_widgets.dart';
 import 'emergency_card.dart';
+import 'features/onboarding/onboarding_provider.dart';
+import 'features/onboarding/onboarding_flow_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/onboarding_repository.dart';
 
 class CaregiverDashboardScreen extends ConsumerWidget {
   const CaregiverDashboardScreen({super.key});
@@ -118,9 +122,25 @@ class CaregiverDashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      dep.name,
-                      style: access.getTextStyle(baseSize: 18.0, fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            dep.name,
+                            style: access.getTextStyle(baseSize: 18.0, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (dep.id != 'dep_1' && dep.id != 'dep_2')
+                          IconButton(
+                            icon: Icon(Icons.edit_rounded, size: 18, color: access.primaryTeal),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              _showEditNicknameDialog(context, ref, dep, access);
+                            },
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -268,6 +288,177 @@ class CaregiverDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showEditNicknameDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Dependent dep,
+    AccessibilityConfig access,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: access.textColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Manage ${dep.name}',
+                  style: access.getTextStyle(
+                    baseSize: 18.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: access.primaryTeal.withOpacity(0.1),
+                    child: Icon(Icons.edit_rounded, color: access.primaryTeal),
+                  ),
+                  title: Text(
+                    'Edit Health Profile',
+                    style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Update conditions, current meds, or vitals',
+                    style: access.getTextStyle(baseSize: 13.0, color: access.textColor.withOpacity(0.5)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    final profiles = ref.read(allProfilesProvider).value ?? [];
+                    final depProfile = profiles.firstWhere((p) => p.id == dep.id);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OnboardingFlowScreen(
+                          isAddingDependent: true,
+                          prefilledDependent: depProfile,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.red.shade50,
+                    child: Icon(Icons.delete_rounded, color: Colors.red.shade700),
+                  ),
+                  title: Text(
+                    'Delete Profile',
+                    style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+                  ),
+                  subtitle: Text(
+                    'Permanently remove from caregiver cabinet',
+                    style: access.getTextStyle(baseSize: 13.0, color: access.textColor.withOpacity(0.5)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showDeleteConfirmation(context, ref, dep, access);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    Dependent dep,
+    AccessibilityConfig access,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Delete ${dep.name}?',
+            style: access.getTextStyle(baseSize: 18.0, fontWeight: FontWeight.bold, color: Colors.red.shade700),
+          ),
+          content: Text(
+            'Are you sure you want to permanently delete this dependent profile and all their medications? This action cannot be undone.',
+            style: access.getTextStyle(baseSize: 14.0),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: access.getTextStyle(baseSize: 14.0, color: access.textColor.withOpacity(0.6)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Deleting dependent profile...')),
+                );
+
+                try {
+                  final repo = ref.read(onboardingRepositoryProvider);
+                  await repo.deleteDependent(dep.id, user.uid);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Dependent profile deleted successfully!'),
+                        backgroundColor: Color(0xFF0F766E),
+                      ),
+                    );
+                    ref.invalidate(allProfilesProvider);
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete dependent: $e'),
+                        backgroundColor: const Color(0xFFB91C1C),
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                'Delete',
+                style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

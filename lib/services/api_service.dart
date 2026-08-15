@@ -47,9 +47,9 @@ class ApiService {
   }
 
   /// Retrieve the user's SQLite-backed cabinet list
-  Future<List<MedicineModel>> getCabinet(String uid) async {
+  Future<List<MedicineModel>> getCabinet(String uid, {String? dependentId}) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/cabinet?uid=$uid');
+      final uri = Uri.parse('$baseUrl/api/cabinet?uid=$uid' + (dependentId != null ? '&dependent_id=$dependentId' : ''));
       debugPrint('API_SERVICE: GET $uri');
       final response = await http.get(uri);
 
@@ -75,7 +75,7 @@ class ApiService {
   }
 
   /// Add/Save medicine to the user's SQL cabinet
-  Future<void> addMedicineToCabinet(String uid, MedicineModel medicine) async {
+  Future<void> addMedicineToCabinet(String uid, MedicineModel medicine, {String? dependentId}) async {
     try {
       final uri = Uri.parse('$baseUrl/api/cabinet');
       debugPrint('API_SERVICE: POST $uri');
@@ -86,7 +86,10 @@ class ApiService {
         },
         body: jsonEncode(<String, dynamic>{
           'uid': uid,
-          'medicine': medicine.toJson(),
+          'medicine': {
+            ...medicine.toJson(),
+            if (dependentId != null) 'dependent_id': dependentId,
+          },
         }),
       );
 
@@ -101,9 +104,9 @@ class ApiService {
   }
 
   /// Remove/Delete medicine from user's SQL cabinet
-  Future<void> removeMedicineFromCabinet(String uid, String medicineId) async {
+  Future<void> removeMedicineFromCabinet(String uid, String medicineId, {String? dependentId}) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/cabinet/$medicineId?uid=$uid');
+      final uri = Uri.parse('$baseUrl/api/cabinet/$medicineId?uid=$uid' + (dependentId != null ? '&dependent_id=$dependentId' : ''));
       debugPrint('API_SERVICE: DELETE $uri');
       final response = await http.delete(uri);
 
@@ -221,5 +224,64 @@ class ApiService {
     } finally {
       debugPrint('API_SERVICE: scanText FINALLY');
     }
+  }
+
+  Future<List<SearchedMedicine>> searchMedicines(String query) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/medicines/search?q=${Uri.encodeComponent(query)}');
+      debugPrint('API_SERVICE: GET $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Search failed with status: ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic> || decoded['status'] != 'success') {
+        throw Exception('Invalid search response format');
+      }
+
+      final data = decoded['data'];
+      if (data is! List) {
+        return [];
+      }
+
+      return data.map((item) => SearchedMedicine.fromJson(item)).toList();
+    } catch (e) {
+      debugPrint('API_SERVICE: searchMedicines ERROR: $e');
+      rethrow;
+    }
+  }
+}
+
+class SearchedMedicine {
+  final String id;
+  final String brandName;
+  final String genericName;
+  final String? price;
+  final String? manufacturer;
+  final String? substitutes;
+  final String? sideEffects;
+
+  SearchedMedicine({
+    required this.id,
+    required this.brandName,
+    required this.genericName,
+    this.price,
+    this.manufacturer,
+    this.substitutes,
+    this.sideEffects,
+  });
+
+  factory SearchedMedicine.fromJson(Map<String, dynamic> json) {
+    return SearchedMedicine(
+      id: json['id'] as String? ?? '',
+      brandName: json['brand_name'] as String? ?? json['brandName'] as String? ?? '',
+      genericName: json['generic_name'] as String? ?? json['genericName'] as String? ?? '',
+      price: json['price'] as String?,
+      manufacturer: json['manufacturer'] as String?,
+      substitutes: json['substitutes'] as String?,
+      sideEffects: json['side_effects'] as String? ?? json['sideEffects'] as String?,
+    );
   }
 }

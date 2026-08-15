@@ -7,6 +7,10 @@ import 'shared_states.dart';
 import 'onboarding_screen.dart';
 import 'auth_screen.dart';
 import 'cabinet_screen.dart';
+import 'features/onboarding/onboarding_flow_screen.dart';
+import 'features/onboarding/onboarding_provider.dart';
+import 'models/user_health_profile.dart';
+import 'services/onboarding_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,41 +57,85 @@ class MyApp extends StatelessWidget {
   }
 }
 
+final authStateProvider = StreamProvider<User?>((ref) {
+  return FirebaseAuth.instance.authStateChanges();
+});
+
+final onboardingProfileProvider = FutureProvider<UserHealthProfile?>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.value;
+  if (user == null) return null;
+
+  final repository = ref.watch(onboardingRepositoryProvider);
+  var profile = await repository.fetchProfile(user.uid);
+  if (profile == null) {
+    profile = await repository.createDraftProfile(
+      user.uid,
+      email: user.email,
+      username: user.displayName ?? '',
+    );
+  }
+
+  return profile;
+});
+
 class AuthStateWrapper extends ConsumerWidget {
   const AuthStateWrapper({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // If connection is waiting, show a custom loading screen
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+    final authState = ref.watch(authStateProvider);
+
+    return authState.when(
+      loading: () => const Scaffold(
+        backgroundColor: Color(0xFFF8FAFC),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF0F766E),
+          ),
+        ),
+      ),
+      error: (err, stack) => Scaffold(
+        body: Center(
+          child: Text('Authentication error: $err'),
+        ),
+      ),
+      data: (user) {
+        if (user == null) {
+          return const AuthScreen();
+        }
+
+        final profileAsync = ref.watch(onboardingProfileProvider);
+
+        return profileAsync.when(
+          loading: () => const Scaffold(
             backgroundColor: Color(0xFFF8FAFC),
             body: Center(
               child: CircularProgressIndicator(
                 color: Color(0xFF0F766E),
               ),
             ),
-          );
-        }
-        
-        // 1. FIRST: If NOT logged in, show AuthScreen (Login/Signup)
-        if (!snapshot.hasData || snapshot.data == null) {
-          return const AuthScreen();
-        }
-        
-        // 2. NEXT: If logged in, check if onboarding is completed
-        final prefs = ref.watch(sharedPreferencesProvider);
-        final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-        
-        if (!onboardingCompleted) {
-          return const OnboardingScreen();
-        }
-        
-        // 3. FINALLY: If logged in and onboarding completed, show CabinetScreen
-        return const CabinetScreen();
+          ),
+          error: (err, stack) => Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Error loading health profile: $err'),
+              ),
+            ),
+          ),
+          data: (profile) {
+            if (profile == null) {
+              return const AuthScreen();
+            }
+
+            if (profile.onboardingCompleted) {
+              return const CabinetScreen();
+            }
+
+            return const OnboardingFlowScreen();
+          },
+        );
       },
     );
   }

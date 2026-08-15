@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'services/api_service.dart';
 import 'models/medicine_model.dart';
+import 'models/user_health_profile.dart';
+import 'services/onboarding_repository.dart';
+import 'main.dart';
+import 'package:flutter/foundation.dart';
 
 // --- DATA MODELS ---
 
@@ -32,6 +36,11 @@ class Medicine {
   final String? chemicalClass;
   final String? therapeuticClass;
   final String? habitForming;
+  
+  // Custom user parameters
+  final String? nickname;
+  final double? quantity;
+  final String? dosageSchedule;
 
   Medicine({
     required this.id,
@@ -54,6 +63,9 @@ class Medicine {
     this.chemicalClass,
     this.therapeuticClass,
     this.habitForming,
+    this.nickname,
+    this.quantity,
+    this.dosageSchedule,
   });
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +89,10 @@ class Medicine {
         'chemicalClass': chemicalClass,
         'therapeuticClass': therapeuticClass,
         'habitForming': habitForming,
+        'nickname': nickname,
+        'quantity': quantity,
+        'dosage_schedule': dosageSchedule,
+        'dosageSchedule': dosageSchedule,
       };
 
   factory Medicine.fromJson(Map<String, dynamic> json) => Medicine(
@@ -100,6 +116,9 @@ class Medicine {
         chemicalClass: json['chemicalClass']?.toString(),
         therapeuticClass: json['therapeuticClass']?.toString(),
         habitForming: json['habitForming']?.toString(),
+        nickname: json['nickname']?.toString(),
+        quantity: json['quantity'] != null ? double.tryParse(json['quantity'].toString()) : null,
+        dosageSchedule: json['dosage_schedule']?.toString() ?? json['dosageSchedule']?.toString(),
       );
 }
 
@@ -140,22 +159,25 @@ final elderlyModeProvider = NotifierProvider<ElderlyModeNotifier, bool>(() {
 class CabinetNotifier extends Notifier<List<Medicine>> {
   @override
   List<Medicine> build() {
+    final activeProfile = ref.watch(activeProfileProvider);
+    final key = 'medicine_cabinet_${activeProfile?.id ?? 'self'}';
+
     final prefs = ref.watch(sharedPreferencesProvider);
-    final cached = prefs.getString('medicine_cabinet');
+    final cached = prefs.getString(key);
     List<Medicine> localList = [];
     if (cached != null) {
       try {
         final List decoded = jsonDecode(cached);
         localList = decoded.map((item) => Medicine.fromJson(item)).toList();
       } catch (_) {
-        localList = _getMockData();
+        localList = [];
       }
     } else {
-      localList = _getMockData();
+      localList = [];
     }
 
     // Trigger async SQL backend pull if user is logged in
-    _syncFromBackend();
+    Future.microtask(() => _syncFromBackend());
 
     return localList;
   }
@@ -164,88 +186,68 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    final activeProfile = ref.read(activeProfileProvider);
+    final caregiverProfile = ref.read(onboardingProfileProvider).value;
+    final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+        ? activeProfile.id
+        : null;
+
     try {
       final apiService = ref.read(apiServiceProvider);
-      final List<MedicineModel> dbList = await apiService.getCabinet(user.uid);
+      final List<MedicineModel> dbList = await apiService.getCabinet(user.uid, dependentId: dependentId);
 
-      if (dbList.isNotEmpty) {
-        final List<Medicine> localList = dbList.map((m) {
-          return Medicine(
-            id: m.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-            name: m.brandName ?? '',
-            genericName: m.genericName ?? '',
-            batchNumber: m.batchNumber,
-            expiryDate: m.expiryDate != null ? DateTime.parse(m.expiryDate!) : DateTime.now(),
-            addedDate: m.manufacturingDate != null ? DateTime.parse(m.manufacturingDate!) : DateTime.now(),
-            dosageForm: m.strength ?? 'Tablet',
-            verifiedSource: VerifiedSource.ocr,
-            price: m.mrp != null ? double.tryParse(m.mrp!) : null,
-            manufacturer: m.manufacturer,
-            sideEffects: m.sideEffects,
-            drugInteractions: m.drugInteractions,
-            medicineDesc: m.medicineDesc,
-            substitutes: m.substitutes,
-            chemicalClass: m.chemicalClass,
-            therapeuticClass: m.therapeuticClass,
-            habitForming: m.habitForming,
-          );
-        }).toList();
+      final List<Medicine> localList = dbList.map((m) {
+        return Medicine(
+          id: m.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          name: m.brandName ?? '',
+          genericName: m.genericName ?? '',
+          batchNumber: m.batchNumber,
+          expiryDate: m.expiryDate != null ? DateTime.parse(m.expiryDate!) : DateTime.now(),
+          addedDate: m.manufacturingDate != null ? DateTime.parse(m.manufacturingDate!) : DateTime.now(),
+          dosageForm: m.strength ?? 'Tablet',
+          verifiedSource: m.verifiedSource != null ? VerifiedSource.values[m.verifiedSource!] : VerifiedSource.ocr,
+          price: m.mrp != null ? double.tryParse(m.mrp!) : null,
+          manufacturer: m.manufacturer,
+          sideEffects: m.sideEffects,
+          drugInteractions: m.drugInteractions,
+          medicineDesc: m.medicineDesc,
+          substitutes: m.substitutes,
+          chemicalClass: m.chemicalClass,
+          therapeuticClass: m.therapeuticClass,
+          habitForming: m.habitForming,
+          nickname: m.nickname,
+          quantity: m.quantity,
+          dosageSchedule: m.dosageSchedule,
+        );
+      }).toList();
 
-        state = localList;
-        _saveToPrefs();
-      }
+      state = localList;
+      _saveToPrefs();
     } catch (e) {
       print("SQL CABINET SYNC ERROR: $e");
     }
   }
 
-  List<Medicine> _getMockData() {
-    final mockData = [
-      Medicine(
-        id: '1',
-        name: 'Paracetamol 500mg',
-        genericName: 'Acetaminophen',
-        barcode: '8901043001815',
-        batchNumber: 'BT-88992',
-        expiryDate: DateTime.now().add(const Duration(days: 3)), // Expiring in 3 days (Urgent Red Alert)
-        addedDate: DateTime.now().subtract(const Duration(days: 10)),
-        dosageForm: 'Tablet',
-        verifiedSource: VerifiedSource.barcode,
-      ),
-      Medicine(
-        id: '2',
-        name: 'Metformin 500mg',
-        genericName: 'Metformin Hydrochloride',
-        barcode: '8901043003422',
-        batchNumber: 'MF-22119',
-        expiryDate: DateTime.now().add(const Duration(days: 20)), // Expiring in 20 days (Amber warning)
-        addedDate: DateTime.now().subtract(const Duration(days: 30)),
-        dosageForm: 'Extended Release Tablet',
-        verifiedSource: VerifiedSource.ocr,
-      ),
-      Medicine(
-        id: '3',
-        name: 'Amoxicillin 250mg Capsules',
-        genericName: 'Amoxicillin Trihydrate',
-        barcode: '8901043015467',
-        batchNumber: 'AX-0034',
-        expiryDate: DateTime.now().add(const Duration(days: 120)), // Safe (>90 days)
-        addedDate: DateTime.now().subtract(const Duration(days: 5)),
-        dosageForm: 'Capsule',
-        verifiedSource: VerifiedSource.barcode,
-      ),
-    ];
-    
-    return mockData;
-  }
-
-  void addMedicine(Medicine med) async {
-    state = [...state, med];
+  Future<void> addMedicine(Medicine med) async {
+    final index = state.indexWhere((m) => m.id == med.id);
+    if (index != -1) {
+      final list = List<Medicine>.from(state);
+      list[index] = med;
+      state = list;
+    } else {
+      state = [...state, med];
+    }
     _saveToPrefs();
     
     // Sync to backend SQLite
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      final activeProfile = ref.read(activeProfileProvider);
+      final caregiverProfile = ref.read(onboardingProfileProvider).value;
+      final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+          ? activeProfile.id
+          : null;
+
       try {
         final apiService = ref.read(apiServiceProvider);
         final model = MedicineModel(
@@ -264,10 +266,11 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
           substitutes: med.substitutes,
           chemicalClass: med.chemicalClass,
           therapeuticClass: med.therapeuticClass,
-          habitForming: med.habitForming,
-          verifiedSource: med.verifiedSource.index,
+          nickname: med.nickname,
+          quantity: med.quantity,
+          dosageSchedule: med.dosageSchedule,
         );
-        await apiService.addMedicineToCabinet(user.uid, model);
+        await apiService.addMedicineToCabinet(user.uid, model, dependentId: dependentId);
       } catch (e) {
         print("SQL CABINET ADD ERROR: $e");
       }
@@ -281,9 +284,15 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
     // Sync to backend SQLite
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      final activeProfile = ref.read(activeProfileProvider);
+      final caregiverProfile = ref.read(onboardingProfileProvider).value;
+      final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+          ? activeProfile.id
+          : null;
+
       try {
         final apiService = ref.read(apiServiceProvider);
-        await apiService.removeMedicineFromCabinet(user.uid, id);
+        await apiService.removeMedicineFromCabinet(user.uid, id, dependentId: dependentId);
       } catch (e) {
         print("SQL CABINET DELETE ERROR: $e");
       }
@@ -291,14 +300,54 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
   }
 
   void _saveToPrefs() {
+    final activeProfile = ref.read(activeProfileProvider);
+    final key = 'medicine_cabinet_${activeProfile?.id ?? 'self'}';
     final prefs = ref.read(sharedPreferencesProvider);
     final encoded = jsonEncode(state.map((m) => m.toJson()).toList());
-    prefs.setString('medicine_cabinet', encoded);
+    prefs.setString(key, encoded);
   }
 }
 
 final cabinetProvider = NotifierProvider<CabinetNotifier, List<Medicine>>(() {
   return CabinetNotifier();
+});
+
+class ActiveProfileNotifier extends Notifier<UserHealthProfile?> {
+  @override
+  UserHealthProfile? build() {
+    final caregiverProfileAsync = ref.watch(onboardingProfileProvider);
+    return caregiverProfileAsync.value;
+  }
+
+  void setActiveProfile(UserHealthProfile? profile) {
+    state = profile;
+  }
+}
+
+final activeProfileProvider = NotifierProvider<ActiveProfileNotifier, UserHealthProfile?>(() {
+  return ActiveProfileNotifier();
+});
+
+// All Profiles Provider: caregiver self-profile + all dependents
+final allProfilesProvider = FutureProvider<List<UserHealthProfile>>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return [];
+
+  final repo = ref.watch(onboardingRepositoryProvider);
+  final caregiverProfile = await repo.fetchProfile(user.uid);
+  final List<UserHealthProfile> profiles = [];
+  if (caregiverProfile != null) {
+    profiles.add(caregiverProfile);
+    if (caregiverProfile.role == 'Caregiver') {
+      try {
+        final deps = await repo.fetchDependents(user.uid);
+        profiles.addAll(deps);
+      } catch (e) {
+        debugPrint("ONBOARDING_PROVIDER: fetchDependents failed: $e");
+      }
+    }
+  }
+  return profiles;
 });
 
 // Sync and Connection State Provider using modern Riverpod Notifier
@@ -367,40 +416,42 @@ class Dependent {
 class DependentNotifier extends Notifier<List<Dependent>> {
   @override
   List<Dependent> build() {
-    return [
-      Dependent(
-        id: 'dep_1',
-        name: 'Priya Sharma',
-        age: 8,
-        weight: 22.5,
-        allergies: ['Penicillin'],
-        conditions: ['Asthma'],
-        emergencyContactName: 'Ramesh Sharma (Father)',
-        emergencyContactPhone: '+91 98765 43210',
-        streakDays: 5,
-        adherenceRate: 0.92,
-        adherenceLog: [
-          AdherenceLog(medicineName: 'Amoxicillin 250mg', timeString: '09:00 AM', isTaken: true, takenTime: DateTime.now().subtract(const Duration(hours: 8))),
-          AdherenceLog(medicineName: 'Amoxicillin 250mg', timeString: '09:00 PM', isTaken: false),
-        ],
-      ),
-      Dependent(
-        id: 'dep_2',
-        name: 'Ramesh Gupta',
-        age: 68,
-        weight: 72.0,
-        allergies: ['Sulfa Drugs'],
-        conditions: ['Diabetes Type 2', 'Hypertension'],
-        emergencyContactName: 'Ananya Gupta (Daughter)',
-        emergencyContactPhone: '+91 91234 56789',
-        streakDays: 12,
-        adherenceRate: 0.88,
-        adherenceLog: [
-          AdherenceLog(medicineName: 'Metformin 500mg', timeString: '08:00 AM', isTaken: true, takenTime: DateTime.now().subtract(const Duration(hours: 9))),
-          AdherenceLog(medicineName: 'Metformin 500mg', timeString: '08:00 PM', isTaken: true, takenTime: DateTime.now().subtract(const Duration(minutes: 10))),
-        ],
-      ),
-    ];
+    final allProfilesAsync = ref.watch(allProfilesProvider);
+    final caregiverProfile = ref.watch(onboardingProfileProvider).value;
+
+    return allProfilesAsync.maybeWhen(
+      data: (profiles) {
+        final List<Dependent> list = [];
+        for (var profile in profiles) {
+          if (caregiverProfile != null && profile.id == caregiverProfile.id) {
+            continue;
+          }
+          list.add(
+            Dependent(
+              id: profile.id,
+              name: profile.nickname ?? 'Dependent',
+              age: profile.age ?? 0,
+              weight: profile.weightKg ?? 0.0,
+              allergies: profile.allergies,
+              conditions: profile.chronicConditions,
+              emergencyContactName: 'Primary Caregiver',
+              emergencyContactPhone: '+91 99999 99999',
+              streakDays: 4,
+              adherenceRate: 0.85,
+              adherenceLog: profile.currentMedications.map((m) {
+                return AdherenceLog(
+                  medicineName: m.medicineName,
+                  timeString: '09:00 AM',
+                  isTaken: false,
+                );
+              }).toList(),
+            ),
+          );
+        }
+        return list;
+      },
+      orElse: () => [],
+    );
   }
 
   void recordAdherence(String dependentId, String medicineName, String timeString, bool isTaken) {

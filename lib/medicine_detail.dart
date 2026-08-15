@@ -5,6 +5,7 @@ import 'shared_states.dart';
 import 'shared_widgets.dart';
 import 'dosage_calculator.dart';
 import 'risk_profiler.dart';
+import 'models/medicine_model.dart';
 
 class MedicineDetailScreen extends ConsumerWidget {
   final Medicine medicine;
@@ -103,7 +104,7 @@ class MedicineDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 1. Medicine Header Information Card
-                  _buildHeaderCard(context, access, sourceIcon, sourceText),
+                  _buildHeaderCard(context, ref, access, sourceIcon, sourceText),
                   const SizedBox(height: 24),
 
                   // 2. Drug Interaction Status
@@ -231,6 +232,7 @@ class MedicineDetailScreen extends ConsumerWidget {
 
   Widget _buildHeaderCard(
     BuildContext context,
+    WidgetRef ref,
     AccessibilityConfig access,
     IconData sourceIcon,
     String sourceText,
@@ -265,6 +267,24 @@ class MedicineDetailScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (medicine.nickname != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: access.primaryTeal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          medicine.nickname!.toUpperCase(),
+                          style: access.getTextStyle(
+                            baseSize: 11.0,
+                            fontWeight: FontWeight.bold,
+                            color: access.primaryTeal,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     Text(
                       medicine.name,
                       style: access.getTextStyle(
@@ -292,15 +312,66 @@ class MedicineDetailScreen extends ConsumerWidget {
           // Metadata Grid
           _buildMetaRow('Formulation', medicine.dosageForm, access),
           const SizedBox(height: 10),
+          if (medicine.nickname != null) ...[
+            _buildMetaRow('Nickname', medicine.nickname!, access),
+            const SizedBox(height: 10),
+          ],
+          if (medicine.quantity != null) ...[
+            _buildMetaRow('Quantity', '${medicine.quantity!.toStringAsFixed(0)} units', access),
+            const SizedBox(height: 10),
+          ],
+          if (medicine.dosageSchedule != null) ...[
+            _buildMetaRow('Schedule', medicine.dosageSchedule!, access),
+            const SizedBox(height: 10),
+          ],
           if (medicine.batchNumber != null) ...[
             _buildMetaRow('Batch Code', medicine.batchNumber!, access),
             const SizedBox(height: 10),
           ],
-          _buildMetaRow(
-            'Expiry Date',
-            '${medicine.expiryDate.year}-${medicine.expiryDate.month.toString().padLeft(2, '0')}-${medicine.expiryDate.day.toString().padLeft(2, '0')}',
-            access,
-            isAlert: medicine.expiryDate.difference(DateTime.now()).inDays <= 30,
+          // Expiry Date Row with Edit Pen Button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Expiry Date',
+                style: access.getTextStyle(
+                  baseSize: 14.0,
+                  color: access.textColor.withOpacity(0.5),
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${medicine.expiryDate.year}-${medicine.expiryDate.month.toString().padLeft(2, '0')}-${medicine.expiryDate.day.toString().padLeft(2, '0')}',
+                    style: access.getTextStyle(
+                      baseSize: 14.0,
+                      fontWeight: FontWeight.bold,
+                      color: medicine.expiryDate.difference(DateTime.now()).inDays <= 30
+                          ? access.alertRed
+                          : access.textColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(Icons.edit_rounded, size: 18, color: access.primaryTeal),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: medicine.expiryDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 3650)),
+                      );
+                      if (picked != null) {
+                        _updateExpiryDate(context, ref, picked, access);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           
@@ -341,6 +412,63 @@ class MedicineDetailScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _updateExpiryDate(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime newDate,
+    AccessibilityConfig access,
+  ) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Updating expiry date...')),
+    );
+
+    try {
+      final newMedicine = Medicine(
+        id: medicine.id,
+        name: medicine.name,
+        genericName: medicine.genericName,
+        batchNumber: medicine.batchNumber,
+        expiryDate: newDate,
+        addedDate: medicine.addedDate,
+        dosageForm: medicine.dosageForm,
+        verifiedSource: medicine.verifiedSource,
+        price: medicine.price,
+        manufacturer: medicine.manufacturer,
+        sideEffects: medicine.sideEffects,
+        drugInteractions: medicine.drugInteractions,
+        medicineDesc: medicine.medicineDesc,
+        substitutes: medicine.substitutes,
+        chemicalClass: medicine.chemicalClass,
+        therapeuticClass: medicine.therapeuticClass,
+        habitForming: medicine.habitForming,
+        nickname: medicine.nickname,
+        quantity: medicine.quantity,
+        dosageSchedule: medicine.dosageSchedule,
+      );
+
+      await ref.read(cabinetProvider.notifier).addMedicine(newMedicine);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Expiry date updated successfully!'),
+            backgroundColor: Color(0xFF0F766E),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update expiry date: $e'),
+            backgroundColor: const Color(0xFFB91C1C),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildMetaRow(String label, String value, AccessibilityConfig access, {bool isAlert = false}) {

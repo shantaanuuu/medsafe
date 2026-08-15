@@ -10,6 +10,9 @@ import 'interaction_graph.dart';
 import 'caregiver_dashboard.dart';
 import 'symptom_mapper.dart';
 import 'pharmacy_fallback.dart';
+import 'features/medication_entry/manual/manual_search_screen.dart';
+import 'features/caregiver/profile_switcher.dart';
+import 'main.dart';
 
 class CabinetScreen extends ConsumerStatefulWidget {
   const CabinetScreen({super.key});
@@ -34,12 +37,15 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
     final isElderlyMode = ref.watch(elderlyModeProvider);
     final cabinet = ref.watch(cabinetProvider);
     final syncState = ref.watch(syncProvider);
-    final prefs = ref.watch(sharedPreferencesProvider);
-
-    final userRole = prefs.getString('user_role') ?? 'Patient';
+    final activeProfile = ref.watch(activeProfileProvider);
+    final caregiverProfile = ref.watch(onboardingProfileProvider).value;
+    final userRole = caregiverProfile?.role ?? 'Patient';
+    final isCaregiver = userRole == 'Caregiver';
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final userEmail = firebaseUser?.email ?? 'User';
-    final userName = firebaseUser?.displayName ?? userEmail.split('@')[0];
+    final userName = activeProfile != null
+        ? (activeProfile.nickname ?? 'Dependent')
+        : (firebaseUser?.displayName ?? userEmail.split('@')[0]);
 
     // Initialize accessibility configuration
     final access = AccessibilityConfig(isElderlyMode: isElderlyMode);
@@ -91,17 +97,18 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                 Navigator.pop(context); // close drawer
               },
             ),
-            ListTile(
-              leading: Icon(Icons.people_alt_outlined, color: access.primaryTeal),
-              title: Text('Caregiver Dashboard', style: access.getTextStyle(baseSize: 15.0)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CaregiverDashboardScreen()),
-                );
-              },
-            ),
+            if (isCaregiver)
+              ListTile(
+                leading: Icon(Icons.people_alt_outlined, color: access.primaryTeal),
+                title: Text('Caregiver Dashboard', style: access.getTextStyle(baseSize: 15.0)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CaregiverDashboardScreen()),
+                  );
+                },
+              ),
             ListTile(
               leading: Icon(Icons.hub_outlined, color: access.primaryTeal),
               title: Text('Interaction Graph', style: access.getTextStyle(baseSize: 15.0)),
@@ -155,18 +162,19 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
         ),
         actions: [
           // Caregiver Dashboard button
-          IconButton(
-            icon: Icon(Icons.people_alt_outlined, color: access.primaryTeal),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CaregiverDashboardScreen(),
-                ),
-              );
-            },
-            tooltip: 'Caregiver dashboard',
-          ),
+          if (isCaregiver)
+            IconButton(
+              icon: Icon(Icons.people_alt_outlined, color: access.primaryTeal),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CaregiverDashboardScreen(),
+                  ),
+                );
+              },
+              tooltip: 'Caregiver dashboard',
+            ),
           // Symptom Mapper button
           IconButton(
             icon: Icon(Icons.bubble_chart_outlined, color: access.primaryTeal),
@@ -220,6 +228,9 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
           // 1. Disclaimer Banner (non-dismissible strip at the top)
           DisclaimerBanner(access: access),
 
+          // Profile switcher for caregivers
+          const ProfileSwitcher(),
+
           // 2. Offline Sync Banner (displayed when in offline mode)
           if (syncState.isOffline)
             OfflineSyncBanner(
@@ -253,7 +264,7 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${userRole == 'Patient' ? 'Patient' : 'Caregiver'}: $userName',
+                            '${activeProfile?.id == caregiverProfile?.id ? (userRole == 'Patient' ? 'Patient' : 'Caregiver') : 'Patient'}: $userName',
                             style: access.getTextStyle(
                               baseSize: 14.0,
                               color: access.textColor.withOpacity(0.6),
@@ -261,7 +272,7 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                           ),
                         ],
                       ),
-                      RoleBadge(access: access, role: userRole),
+                      RoleBadge(access: access, role: activeProfile?.id == caregiverProfile?.id ? userRole : 'Patient'),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -355,11 +366,90 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddMedicineScanScreen(),
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
+            builder: (BuildContext context) {
+              return SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: access.textColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Add New Medication',
+                        style: access.getTextStyle(
+                          baseSize: 18.0,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: access.primaryTeal.withOpacity(0.1),
+                          child: Icon(Icons.qr_code_scanner_rounded, color: access.primaryTeal),
+                        ),
+                        title: Text(
+                          'Scan Package',
+                          style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          'Scan barcode or text using your camera',
+                          style: access.getTextStyle(baseSize: 13.0, color: access.textColor.withOpacity(0.5)),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddMedicineScanScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue.shade50,
+                          child: Icon(Icons.edit_note_rounded, color: Colors.blue.shade700),
+                        ),
+                        title: Text(
+                          'Add Manually',
+                          style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          'Type medicine name to search database',
+                          style: access.getTextStyle(baseSize: 13.0, color: access.textColor.withOpacity(0.5)),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ManualSearchScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
         backgroundColor: access.primaryTeal,

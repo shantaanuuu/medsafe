@@ -18,6 +18,9 @@ class MedicineModel {
     this.therapeuticClass,
     this.habitForming,
     this.verifiedSource,
+    this.nickname,
+    this.quantity,
+    this.dosageSchedule,
   });
 
   final String? id;
@@ -43,6 +46,11 @@ class MedicineModel {
   // App verified source metadata
   final int? verifiedSource;
 
+  // Customized properties
+  final String? nickname;
+  final double? quantity;
+  final String? dosageSchedule;
+
   factory MedicineModel.fromJson(Map<String, dynamic> json) {
     return MedicineModel(
       id: json['id']?.toString(),
@@ -63,6 +71,9 @@ class MedicineModel {
       therapeuticClass: json['therapeutic_class']?.toString() ?? json['therapeuticClass']?.toString(),
       habitForming: json['habit_forming']?.toString() ?? json['habitForming']?.toString(),
       verifiedSource: json['verifiedSource'] != null ? int.tryParse(json['verifiedSource'].toString()) : (json['verified_source'] != null ? int.tryParse(json['verified_source'].toString()) : null),
+      nickname: json['nickname']?.toString(),
+      quantity: json['quantity'] != null ? double.tryParse(json['quantity'].toString()) : null,
+      dosageSchedule: json['dosage_schedule']?.toString() ?? json['dosageSchedule']?.toString(),
     );
   }
 
@@ -100,6 +111,10 @@ class MedicineModel {
       'habitForming': habitForming,
       'verifiedSource': verifiedSource,
       'verified_source': verifiedSource,
+      'nickname': nickname,
+      'quantity': quantity,
+      'dosage_schedule': dosageSchedule,
+      'dosageSchedule': dosageSchedule,
     };
   }
 }
