@@ -1,0 +1,8 @@
+Flask
+opencv-python
+numpy
+pytesseract
+Pillow
+mysql-connector-python
+python-dotenv
+google-generativeai
