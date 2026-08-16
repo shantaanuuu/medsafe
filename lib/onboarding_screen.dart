@@ -79,15 +79,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     // App Logo Mockup
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
-                          color: access.primaryTeal.withOpacity(0.08),
-                          shape: BoxShape.circle,
+                          color: access.pastelBlue,
+                          borderRadius: BorderRadius.circular(22),
                         ),
+                        alignment: Alignment.center,
                         child: Icon(
                           Icons.health_and_safety_rounded,
-                          color: access.primaryTeal,
-                          size: access.scaleText(48.0),
+                          color: access.primaryBlue,
+                          size: access.scaleText(44.0),
                         ),
                       ),
                     ),

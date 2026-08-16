@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'services/api_service.dart';
 import 'models/medicine_model.dart';
 import 'models/user_health_profile.dart';
+import 'models/medication_schedule.dart';
+import 'models/medication_log.dart';
 import 'services/onboarding_repository.dart';
 import 'main.dart';
 import 'package:flutter/foundation.dart';
@@ -120,6 +123,58 @@ class Medicine {
         quantity: json['quantity'] != null ? double.tryParse(json['quantity'].toString()) : null,
         dosageSchedule: json['dosage_schedule']?.toString() ?? json['dosageSchedule']?.toString(),
       );
+
+  Medicine copyWith({
+    String? id,
+    String? name,
+    String? genericName,
+    String? ndcCode,
+    String? barcode,
+    String? batchNumber,
+    DateTime? expiryDate,
+    DateTime? addedDate,
+    String? dosageForm,
+    String? linkedPrescriptionId,
+    VerifiedSource? verifiedSource,
+    double? price,
+    String? manufacturer,
+    String? sideEffects,
+    String? drugInteractions,
+    String? medicineDesc,
+    String? substitutes,
+    String? chemicalClass,
+    String? therapeuticClass,
+    String? habitForming,
+    String? nickname,
+    double? quantity,
+    String? dosageSchedule,
+  }) {
+    return Medicine(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      genericName: genericName ?? this.genericName,
+      ndcCode: ndcCode ?? this.ndcCode,
+      barcode: barcode ?? this.barcode,
+      batchNumber: batchNumber ?? this.batchNumber,
+      expiryDate: expiryDate ?? this.expiryDate,
+      addedDate: addedDate ?? this.addedDate,
+      dosageForm: dosageForm ?? this.dosageForm,
+      linkedPrescriptionId: linkedPrescriptionId ?? this.linkedPrescriptionId,
+      verifiedSource: verifiedSource ?? this.verifiedSource,
+      price: price ?? this.price,
+      manufacturer: manufacturer ?? this.manufacturer,
+      sideEffects: sideEffects ?? this.sideEffects,
+      drugInteractions: drugInteractions ?? this.drugInteractions,
+      medicineDesc: medicineDesc ?? this.medicineDesc,
+      substitutes: substitutes ?? this.substitutes,
+      chemicalClass: chemicalClass ?? this.chemicalClass,
+      therapeuticClass: therapeuticClass ?? this.therapeuticClass,
+      habitForming: habitForming ?? this.habitForming,
+      nickname: nickname ?? this.nickname,
+      quantity: quantity ?? this.quantity,
+      dosageSchedule: dosageSchedule ?? this.dosageSchedule,
+    );
+  }
 }
 
 class SyncState {
@@ -293,6 +348,7 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
       try {
         final apiService = ref.read(apiServiceProvider);
         await apiService.removeMedicineFromCabinet(user.uid, id, dependentId: dependentId);
+        ref.invalidate(schedulesProvider);
       } catch (e) {
         print("SQL CABINET DELETE ERROR: $e");
       }
@@ -307,6 +363,46 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
     prefs.setString(key, encoded);
   }
 }
+
+// Medication Schedules Provider
+final schedulesProvider = FutureProvider.autoDispose<List<MedicationSchedule>>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return [];
+
+  final activeProfile = ref.watch(activeProfileProvider);
+  final caregiverProfile = ref.watch(onboardingProfileProvider).value;
+  final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+      ? activeProfile.id
+      : null;
+
+  final api = ref.watch(apiServiceProvider);
+  try {
+    return await api.getSchedules(user.uid, dependentId: dependentId);
+  } catch (e) {
+    debugPrint("FETCH SCHEDULES ERROR: $e");
+    return [];
+  }
+});
+
+// Medication Daily Logs Provider
+final logsProvider = FutureProvider.autoDispose.family<List<MedicationLog>, String>((ref, dateStr) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return [];
+
+  final activeProfile = ref.watch(activeProfileProvider);
+  final caregiverProfile = ref.watch(onboardingProfileProvider).value;
+  final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+      ? activeProfile.id
+      : null;
+
+  final api = ref.watch(apiServiceProvider);
+  try {
+    return await api.getLogs(user.uid, dateStr, dependentId: dependentId);
+  } catch (e) {
+    debugPrint("FETCH LOGS ERROR: $e");
+    return [];
+  }
+});
 
 final cabinetProvider = NotifierProvider<CabinetNotifier, List<Medicine>>(() {
   return CabinetNotifier();

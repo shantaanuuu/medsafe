@@ -291,7 +291,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFF0F766E))),
+          builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
         );
 
         await repo.saveDependent(dependent);
@@ -301,7 +301,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Dependent profile saved successfully!'),
-              backgroundColor: Color(0xFF0F766E),
+              backgroundColor: Color(0xFF2563EB),
             ),
           );
           ref.invalidate(allProfilesProvider);
@@ -416,10 +416,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
           ),
           if (state.status == OnboardingStatus.submitting || state.status == OnboardingStatus.loading)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withOpacity(0.2),
               child: const Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF0F766E),
+                  color: Color(0xFF2563EB),
                 ),
               ),
             ),
@@ -783,7 +783,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
               suffixIcon: _isLoadingMeds
                   ? const Padding(
                       padding: EdgeInsets.all(12.0),
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E)),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)),
                     )
                   : null,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

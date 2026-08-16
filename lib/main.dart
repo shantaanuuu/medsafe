@@ -7,6 +7,7 @@ import 'shared_states.dart';
 import 'onboarding_screen.dart';
 import 'auth_screen.dart';
 import 'cabinet_screen.dart';
+import 'main_dashboard.dart';
 import 'features/onboarding/onboarding_flow_screen.dart';
 import 'features/onboarding/onboarding_provider.dart';
 import 'models/user_health_profile.dart';
@@ -43,11 +44,26 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0F766E), // MedSafe primary teal
-          brightness: Brightness.light, // Using light mode with high-contrast neutral grays
+          seedColor: const Color(0xFF2563EB), // MedSafe primary medical blue
+          primary: const Color(0xFF2563EB),
+          surface: Colors.white,
+          brightness: Brightness.light,
         ),
         fontFamily: 'Inter',
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF8FAFC),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: IconThemeData(color: Color(0xFF111827)),
+          titleTextStyle: TextStyle(
+            color: Color(0xFF111827),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Inter',
+          ),
+        ),
       ),
       initialRoute: '/',
       routes: {
@@ -91,11 +107,12 @@ class AuthStateWrapper extends ConsumerWidget {
         backgroundColor: Color(0xFFF8FAFC),
         body: Center(
           child: CircularProgressIndicator(
-            color: Color(0xFF0F766E),
+            color: Color(0xFF2563EB),
           ),
         ),
       ),
       error: (err, stack) => Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
         body: Center(
           child: Text('Authentication error: $err'),
         ),
@@ -112,7 +129,7 @@ class AuthStateWrapper extends ConsumerWidget {
             backgroundColor: Color(0xFFF8FAFC),
             body: Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF0F766E),
+                color: Color(0xFF2563EB),
               ),
             ),
           ),
@@ -130,7 +147,7 @@ class AuthStateWrapper extends ConsumerWidget {
             }
 
             if (profile.onboardingCompleted) {
-              return const CabinetScreen();
+              return const MainDashboard();
             }
 
             return const OnboardingFlowScreen();

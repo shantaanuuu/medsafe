@@ -9,6 +9,7 @@ DB_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "database", "medicines.db
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -96,6 +97,46 @@ def init_user_tables():
         FOREIGN KEY(caregiver_uid) REFERENCES users(uid)
     )
     """)
+
+    # 5. Medication Schedules table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS medication_schedules (
+        id TEXT PRIMARY KEY,
+        cabinet_item_id TEXT NOT NULL,
+        dependent_id TEXT,
+        user_uid TEXT NOT NULL,
+        frequency_per_day INTEGER NOT NULL,
+        scheduled_times TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(cabinet_item_id) REFERENCES user_medicines(id) ON DELETE CASCADE,
+        FOREIGN KEY(user_uid) REFERENCES users(uid) ON DELETE CASCADE
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_medication_schedules_cabinet_item ON medication_schedules(cabinet_item_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_medication_schedules_user ON medication_schedules(user_uid)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_medication_schedules_dependent ON medication_schedules(dependent_id)")
+
+    # 6. Medication Logs table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS medication_logs (
+        id TEXT PRIMARY KEY,
+        cabinet_item_id TEXT NOT NULL,
+        dependent_id TEXT,
+        user_uid TEXT NOT NULL,
+        dose_time TEXT NOT NULL,
+        taken_date TEXT NOT NULL,
+        taken INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(cabinet_item_id) REFERENCES user_medicines(id) ON DELETE CASCADE,
+        FOREIGN KEY(user_uid) REFERENCES users(uid) ON DELETE CASCADE,
+        UNIQUE(cabinet_item_id, dose_time, taken_date)
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_medication_logs_cabinet_item ON medication_logs(cabinet_item_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_medication_logs_user ON medication_logs(user_uid)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_medication_logs_date ON medication_logs(taken_date)")
+
     conn.commit()
 
     # Dynamic migrations
@@ -198,22 +239,43 @@ def add_to_cabinet():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("""
-        INSERT OR REPLACE INTO user_medicines (
-            id, user_uid, name, generic_name, barcode, batch_number, expiry_date, added_date, dosage_form, verified_source,
-            price, manufacturer, side_effects, drug_interactions, medicine_desc, substitutes, chemical_class, therapeutic_class, habit_forming,
-            nickname, quantity, dosage_schedule, dependent_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            med_id, uid, med.get("name"), med.get("genericName"), med.get("barcode"), med.get("batchNumber"),
-            med.get("expiryDate"), med.get("addedDate"), med.get("dosageForm"), med.get("verifiedSource"),
-            med.get("price"), med.get("manufacturer"), med.get("sideEffects"), med.get("drugInteractions"),
-            med.get("medicineDesc"), med.get("substitutes"), med.get("chemicalClass"), med.get("therapeuticClass"), med.get("habitForming"),
-            med.get("nickname"), med.get("quantity"), med.get("dosageSchedule"), med.get("dependent_id") or med.get("dependentId")
-        ))
+        
+        cursor.execute("SELECT id FROM user_medicines WHERE id = ?", (med_id,))
+        exists = cursor.fetchone()
+        
+        if exists:
+            cursor.execute("""
+            UPDATE user_medicines SET
+                name=?, generic_name=?, barcode=?, batch_number=?, expiry_date=?, added_date=?, dosage_form=?, verified_source=?,
+                price=?, manufacturer=?, side_effects=?, drug_interactions=?, medicine_desc=?, substitutes=?, chemical_class=?, therapeutic_class=?, habit_forming=?,
+                nickname=?, quantity=?, dosage_schedule=?, dependent_id=?
+            WHERE id=? AND user_uid=?
+            """, (
+                med.get("name"), med.get("genericName"), med.get("barcode"), med.get("batchNumber"),
+                med.get("expiryDate"), med.get("addedDate"), med.get("dosageForm"), med.get("verifiedSource"),
+                med.get("price"), med.get("manufacturer"), med.get("sideEffects"), med.get("drugInteractions"),
+                med.get("medicineDesc"), med.get("substitutes"), med.get("chemicalClass"), med.get("therapeuticClass"), med.get("habitForming"),
+                med.get("nickname"), med.get("quantity"), med.get("dosageSchedule"), med.get("dependent_id") or med.get("dependentId"),
+                med_id, uid
+            ))
+        else:
+            cursor.execute("""
+            INSERT INTO user_medicines (
+                id, user_uid, name, generic_name, barcode, batch_number, expiry_date, added_date, dosage_form, verified_source,
+                price, manufacturer, side_effects, drug_interactions, medicine_desc, substitutes, chemical_class, therapeutic_class, habit_forming,
+                nickname, quantity, dosage_schedule, dependent_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                med_id, uid, med.get("name"), med.get("genericName"), med.get("barcode"), med.get("batchNumber"),
+                med.get("expiryDate"), med.get("addedDate"), med.get("dosageForm"), med.get("verifiedSource"),
+                med.get("price"), med.get("manufacturer"), med.get("sideEffects"), med.get("drugInteractions"),
+                med.get("medicineDesc"), med.get("substitutes"), med.get("chemicalClass"), med.get("therapeuticClass"), med.get("habitForming"),
+                med.get("nickname"), med.get("quantity"), med.get("dosageSchedule"), med.get("dependent_id") or med.get("dependentId")
+            ))
+            
         conn.commit()
         conn.close()
-        return jsonify({"status": "success", "message": "Medicine added to database cabinet"})
+        return jsonify({"status": "success", "message": "Medicine added/updated in database cabinet"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -565,3 +627,163 @@ def delete_dependent(dep_id):
         return jsonify({"status": "success", "message": "Dependent profile deleted successfully"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_cabinet_bp.route("/api/schedules", methods=["GET"])
+def get_schedules():
+    uid = request.args.get("uid")
+    dependent_id = request.args.get("dependent_id")
+    if not uid:
+        return jsonify({"status": "error", "message": "uid parameter is required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if dependent_id and dependent_id != "null" and dependent_id != "":
+            cursor.execute("SELECT * FROM medication_schedules WHERE user_uid = ? AND dependent_id = ?", (uid, dependent_id))
+        else:
+            cursor.execute("SELECT * FROM medication_schedules WHERE user_uid = ? AND (dependent_id IS NULL OR dependent_id = '')", (uid,))
+        rows = cursor.fetchall()
+        
+        schedules = []
+        for row in rows:
+            schedule_dict = dict(row)
+            import json
+            try:
+                schedule_dict["scheduled_times"] = json.loads(schedule_dict["scheduled_times"])
+            except Exception:
+                schedule_dict["scheduled_times"] = []
+            schedules.append(schedule_dict)
+            
+        conn.close()
+        return jsonify({"status": "success", "data": schedules})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_cabinet_bp.route("/api/schedules", methods=["POST"])
+def save_schedule():
+    data = request.get_json()
+    if not data or "id" not in data or "cabinet_item_id" not in data or "user_uid" not in data:
+        return jsonify({"status": "error", "message": "Missing required schedule fields"}), 400
+
+    import json
+    scheduled_times = data.get("scheduled_times", [])
+    scheduled_times_str = json.dumps(scheduled_times)
+    dep_id = data.get("dependent_id")
+    if dep_id == "null" or dep_id == "":
+        dep_id = None
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO medication_schedules (
+            id, cabinet_item_id, dependent_id, user_uid, frequency_per_day, scheduled_times, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+            frequency_per_day=excluded.frequency_per_day,
+            scheduled_times=excluded.scheduled_times,
+            updated_at=datetime('now')
+        """, (
+            data["id"], data["cabinet_item_id"], dep_id, data["user_uid"],
+            data["frequency_per_day"], scheduled_times_str
+        ))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "message": "Medication schedule saved successfully"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_cabinet_bp.route("/api/schedules/<schedule_id>", methods=["DELETE"])
+def delete_schedule(schedule_id):
+    uid = request.args.get("uid")
+    if not uid:
+        return jsonify({"status": "error", "message": "uid parameter is required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM medication_schedules WHERE id = ? AND user_uid = ?", (schedule_id, uid))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "message": "Medication schedule deleted successfully"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_cabinet_bp.route("/api/logs", methods=["GET"])
+def get_logs():
+    uid = request.args.get("uid")
+    date_str = request.args.get("date")
+    dependent_id = request.args.get("dependent_id")
+    if not uid or not date_str:
+        return jsonify({"status": "error", "message": "uid and date parameters are required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if dependent_id and dependent_id != "null" and dependent_id != "":
+            cursor.execute("SELECT * FROM medication_logs WHERE user_uid = ? AND dependent_id = ? AND taken_date = ?", (uid, dependent_id, date_str))
+        else:
+            cursor.execute("SELECT * FROM medication_logs WHERE user_uid = ? AND (dependent_id IS NULL OR dependent_id = '') AND taken_date = ?", (uid, date_str))
+        rows = cursor.fetchall()
+        
+        logs = []
+        for row in rows:
+            log_dict = dict(row)
+            log_dict["taken"] = bool(log_dict["taken"])
+            logs.append(log_dict)
+            
+        conn.close()
+        return jsonify({"status": "success", "data": logs})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_cabinet_bp.route("/api/logs", methods=["POST"])
+def save_log():
+    data = request.get_json()
+    if not data or "cabinet_item_id" not in data or "user_uid" not in data or "dose_time" not in data or "taken_date" not in data:
+        return jsonify({"status": "error", "message": "Missing required log fields"}), 400
+
+    log_id = data.get("id")
+    if not log_id:
+        import uuid
+        log_id = str(uuid.uuid4())
+
+    dep_id = data.get("dependent_id")
+    if dep_id == "null" or dep_id == "":
+        dep_id = None
+        
+    taken_val = 1 if data.get("taken", False) else 0
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO medication_logs (
+            id, cabinet_item_id, dependent_id, user_uid, dose_time, taken_date, taken, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(cabinet_item_id, dose_time, taken_date) DO UPDATE SET
+            taken=excluded.taken
+        """, (
+            log_id, data["cabinet_item_id"], dep_id, data["user_uid"],
+            data["dose_time"], data["taken_date"], taken_val
+        ))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "message": "Medication log saved successfully"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@user_cabinet_bp.route("/api/chatbot", methods=["POST"])
+def chatbot_chat():
+    data = request.get_json()
+    if not data or "message" not in data:
+        return jsonify({"status": "error", "message": "message field is required"}), 400
+
+    system_prompt = data.get("system_prompt", "")
+    message = data.get("message", "")
+    history = data.get("history", [])
+    context = data.get("context", "")
+
+    from services.gemini_service import chat_with_gemini
+    reply = chat_with_gemini(system_prompt, message, history, context)
+    return jsonify({"status": "success", "reply": reply})

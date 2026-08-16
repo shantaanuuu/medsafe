@@ -158,7 +158,7 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF0F766E),
+                      color: Color(0xFF2563EB),
                     ),
                   )
                 : _results.isEmpty && _hasSearched

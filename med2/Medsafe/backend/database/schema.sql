@@ -35,3 +35,39 @@ CREATE TRIGGER trg_user_health_profiles_updated_at
     BEFORE UPDATE ON user_health_profiles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- 5. Create Medication Schedules Table
+CREATE TABLE IF NOT EXISTS medication_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cabinet_item_id VARCHAR(255) NOT NULL,
+    dependent_id UUID NULL,
+    user_uid VARCHAR(255) NOT NULL,
+    frequency_per_day INTEGER NOT NULL CHECK (frequency_per_day > 0),
+    scheduled_times JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cabinet_item FOREIGN KEY (cabinet_item_id) REFERENCES user_medicines(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_uid FOREIGN KEY (user_uid) REFERENCES users(uid) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_medication_schedules_cabinet_item ON medication_schedules(cabinet_item_id);
+CREATE INDEX IF NOT EXISTS idx_medication_schedules_user ON medication_schedules(user_uid);
+
+-- 6. Create Medication Logs Table
+CREATE TABLE IF NOT EXISTS medication_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cabinet_item_id VARCHAR(255) NOT NULL,
+    dependent_id UUID NULL,
+    user_uid VARCHAR(255) NOT NULL,
+    dose_time VARCHAR(50) NOT NULL,
+    taken_date DATE NOT NULL,
+    taken BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cabinet_item FOREIGN KEY (cabinet_item_id) REFERENCES user_medicines(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_uid FOREIGN KEY (user_uid) REFERENCES users(uid) ON DELETE CASCADE,
+    CONSTRAINT uq_medication_log UNIQUE (cabinet_item_id, dose_time, taken_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_medication_logs_cabinet_item ON medication_logs(cabinet_item_id);
+CREATE INDEX IF NOT EXISTS idx_medication_logs_user ON medication_logs(user_uid);
+CREATE INDEX IF NOT EXISTS idx_medication_logs_date ON medication_logs(taken_date);

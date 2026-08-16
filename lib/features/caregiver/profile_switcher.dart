@@ -112,7 +112,7 @@ class ProfileSwitcher extends ConsumerWidget {
           child: SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E)),
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2563EB)),
           ),
         ),
         error: (err, stack) => const SizedBox.shrink(),

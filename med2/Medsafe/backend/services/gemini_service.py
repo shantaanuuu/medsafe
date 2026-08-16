@@ -97,3 +97,41 @@ def clean_image_with_gemini(image_path):
     except Exception as e:
         print(f"GEMINI_SERVICE ERROR: Failed to call Gemini Vision API: {e}")
         return None
+
+def chat_with_gemini(system_prompt, message, history, context):
+    """
+    Query Gemini model for conversational app support with system instruction and context enforcement.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key == "your_gemini_api_key_here":
+        print("GEMINI_SERVICE: GEMINI_API_KEY is not configured in .env file.")
+        return "Sorry, the AI Assistant is currently disabled because the API key is not configured."
+
+    try:
+        print("GEMINI_SERVICE: Initializing Gemini API for Chatbot...")
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-3.5-flash")
+        
+        # Build prompt using chat history + context
+        prompt_parts = []
+        prompt_parts.append(f"SYSTEM INSTRUCTION:\n{system_prompt}\n")
+        if context:
+            prompt_parts.append(f"CURRENT SCREEN CONTEXT:\n{context}\n")
+            
+        prompt_parts.append("CONVERSATION HISTORY:")
+        for turn in history:
+            role = turn.get("role", "user")
+            text = turn.get("text", "")
+            role_label = "User" if role == "user" else "Assistant"
+            prompt_parts.append(f"{role_label}: {text}")
+            
+        prompt_parts.append(f"User: {message}")
+        prompt_parts.append("Assistant:")
+        
+        full_prompt = "\n".join(prompt_parts)
+        
+        response = model.generate_content(full_prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"GEMINI_SERVICE ERROR: chat_with_gemini failed: {e}")
+        return f"Sorry, I encountered an error while processing your request: {str(e)}"

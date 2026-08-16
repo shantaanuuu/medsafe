@@ -46,7 +46,7 @@ class _AddMedicineScanScreenState extends ConsumerState<AddMedicineScanScreen> w
             Text('Barcode detected: $type'),
           ],
         ),
-        backgroundColor: const Color(0xFF0F766E),
+        backgroundColor: const Color(0xFF2563EB),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -55,21 +55,26 @@ class _AddMedicineScanScreenState extends ConsumerState<AddMedicineScanScreen> w
       if (!mounted) return;
 
       if (type == 'Paracetamol') {
-        // Automatically add to cabinet (since barcode scans are 100% verified source)
-        final newMed = Medicine(
+        // Redirect to form for mandatory schedule configuration
+        final prefilledMedicine = MedicineModel(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: 'Paracetamol 500mg',
+          brandName: 'Paracetamol 500mg',
           genericName: 'Acetaminophen',
-          barcode: '8901043001815',
           batchNumber: 'PR-4402',
-          expiryDate: DateTime.now().add(const Duration(days: 150)),
-          addedDate: DateTime.now(),
-          dosageForm: 'Tablet',
-          verifiedSource: VerifiedSource.barcode,
+          expiryDate: DateTime.now().add(const Duration(days: 150)).toIso8601String().substring(0, 10),
+          manufacturingDate: DateTime.now().toIso8601String().substring(0, 10),
+          strength: 'Tablet',
+          verifiedSource: VerifiedSource.barcode.index,
         );
 
-        ref.read(cabinetProvider.notifier).addMedicine(newMed);
-        Navigator.pop(context); // Go back to cabinet
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddMedicineOcrScreen(
+              prefilledMedicine: prefilledMedicine,
+            ),
+          ),
+        );
       } else {
         // Redirection to OCR/manual validation for other/unknown labels
         Navigator.pushReplacement(

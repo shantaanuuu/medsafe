@@ -6,6 +6,12 @@ import 'shared_widgets.dart';
 import 'dosage_calculator.dart';
 import 'risk_profiler.dart';
 import 'models/medicine_model.dart';
+import 'models/medication_schedule.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'main.dart';
+import 'services/api_service.dart';
+import 'features/chatbot/widgets/chatbot_overlay.dart';
+import 'features/chatbot/providers/chatbot_provider.dart';
 
 class MedicineDetailScreen extends ConsumerWidget {
   final Medicine medicine;
@@ -62,7 +68,22 @@ class MedicineDetailScreen extends ConsumerWidget {
         break;
     }
 
+    final schedulesAsync = ref.watch(schedulesProvider);
+    final scheduleList = schedulesAsync.value ?? [];
+    MedicationSchedule? schedule;
+    for (var s in scheduleList) {
+      if (s.cabinetItemId == medicine.id) {
+        schedule = s;
+        break;
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(currentScreenProvider.notifier).setScreen('Medicine Detail Screen for ${medicine.name} (${medicine.genericName})');
+    });
+
     return Scaffold(
+      floatingActionButton: const ChatbotOverlayButton(),
       backgroundColor: access.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -105,6 +126,10 @@ class MedicineDetailScreen extends ConsumerWidget {
                 children: [
                   // 1. Medicine Header Information Card
                   _buildHeaderCard(context, ref, access, sourceIcon, sourceText),
+                  const SizedBox(height: 24),
+
+                  // Medication Schedule Card
+                  _buildScheduleCard(context, ref, schedule, access),
                   const SizedBox(height: 24),
 
                   // 2. Drug Interaction Status
@@ -243,7 +268,14 @@ class MedicineDetailScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: access.textColor.withOpacity(0.08), width: 1.5),
+        border: Border.all(color: access.borderColor, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,12 +285,12 @@ class MedicineDetailScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: access.primaryTeal.withOpacity(0.08),
+                  color: access.pastelBlue,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   Icons.medication_rounded,
-                  color: access.primaryTeal,
+                  color: access.primaryBlue,
                   size: access.scaleText(32.0),
                 ),
               ),
@@ -454,7 +486,7 @@ class MedicineDetailScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Expiry date updated successfully!'),
-            backgroundColor: Color(0xFF0F766E),
+            backgroundColor: const Color(0xFF2563EB),
           ),
         );
         Navigator.pop(context);
@@ -731,6 +763,553 @@ class MedicineDetailScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildScheduleCard(
+    BuildContext context,
+    WidgetRef ref,
+    MedicationSchedule? schedule,
+    AccessibilityConfig access,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(access.scaleSpacing(20.0)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: access.borderColor, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Dosing Schedule',
+                style: access.getTextStyle(
+                  baseSize: 18.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.edit_calendar_rounded, color: access.primaryTeal),
+                onPressed: () {
+                  _showEditScheduleBottomSheet(context, ref, schedule, access);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (schedule == null) ...[
+            Text(
+              'No active schedule set for this medicine.',
+              style: access.getTextStyle(
+                baseSize: 14.0,
+                color: access.textColor.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                _showEditScheduleBottomSheet(context, ref, null, access);
+              },
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text('Add Schedule', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: access.primaryTeal,
+                minimumSize: Size(double.infinity, access.minTapTargetSize),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Icon(Icons.repeat_rounded, color: access.primaryTeal, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Frequency:',
+                  style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${schedule.frequencyPerDay} times/day',
+                  style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold, color: access.primaryTeal),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Scheduled Dose Times:',
+              style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: schedule.scheduledTimes.map((timeStr) {
+                return Chip(
+                  avatar: Icon(Icons.access_time_rounded, size: 16, color: access.primaryTeal),
+                  label: Text(
+                    timeStr,
+                    style: access.getTextStyle(baseSize: 13.0, fontWeight: FontWeight.w600, color: access.textColor),
+                  ),
+                  backgroundColor: access.primaryTeal.withOpacity(0.06),
+                  side: BorderSide(color: access.primaryTeal.withOpacity(0.12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showEditScheduleBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+    MedicationSchedule? existing,
+    AccessibilityConfig access,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        var initialFreq = 'Once Daily';
+        if (existing != null) {
+          if (existing.frequencyPerDay == 1) initialFreq = 'Once Daily';
+          else if (existing.frequencyPerDay == 2) initialFreq = 'Twice Daily';
+          else if (existing.frequencyPerDay == 3) initialFreq = 'Three Times Daily';
+          else if (existing.frequencyPerDay == 4) initialFreq = 'Four Times Daily';
+          else initialFreq = 'Custom';
+        }
+
+        return _EditScheduleSheetBody(
+          existing: existing,
+          initialFreq: initialFreq,
+          medicine: medicine,
+          ref: ref,
+          access: access,
+          onSave: () => Navigator.pop(context),
+        );
+      },
+    );
+  }
+}
+
+class _EditScheduleSheetBody extends StatefulWidget {
+  final MedicationSchedule? existing;
+  final String initialFreq;
+  final Medicine medicine;
+  final WidgetRef ref;
+  final AccessibilityConfig access;
+  final VoidCallback onSave;
+
+  const _EditScheduleSheetBody({
+    required this.existing,
+    required this.initialFreq,
+    required this.medicine,
+    required this.ref,
+    required this.access,
+    required this.onSave,
+  });
+
+  @override
+  State<_EditScheduleSheetBody> createState() => _EditScheduleSheetBodyState();
+}
+
+class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
+  late String _frequency;
+  late int _customTimesCount;
+  late List<TimeOfDay> _doseTimes;
+
+  @override
+  void initState() {
+    super.initState();
+    _frequency = widget.initialFreq;
+    if (widget.existing != null) {
+      _customTimesCount = widget.existing!.frequencyPerDay;
+      _doseTimes = widget.existing!.scheduledTimes.map((t) => _parseTimeOfDay(t)).toList();
+    } else {
+      _customTimesCount = 1;
+      _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
+    }
+  }
+
+  TimeOfDay _parseTimeOfDay(String timeStr) {
+    try {
+      final parts = timeStr.trim().split(' ');
+      final timeParts = parts[0].split(':');
+      var hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      final isPm = parts[1].toUpperCase() == 'PM';
+      if (isPm && hour < 12) hour += 12;
+      if (!isPm && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (_) {
+      return const TimeOfDay(hour: 9, minute: 0);
+    }
+  }
+
+  void _updateDoseTimesForFrequency(String freq) {
+    setState(() {
+      _frequency = freq;
+      if (freq == 'Once Daily') {
+        _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
+      } else if (freq == 'Twice Daily') {
+        _doseTimes = [
+          const TimeOfDay(hour: 9, minute: 0),
+          const TimeOfDay(hour: 21, minute: 0),
+        ];
+      } else if (freq == 'Three Times Daily') {
+        _doseTimes = [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 14, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      } else if (freq == 'Four Times Daily') {
+        _doseTimes = [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 12, minute: 0),
+          const TimeOfDay(hour: 16, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      } else if (freq == 'Custom') {
+        _customTimesCount = _doseTimes.length;
+        if (_customTimesCount == 0) {
+          _customTimesCount = 1;
+          _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
+        }
+      }
+    });
+  }
+
+  void _submit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final activeProfile = widget.ref.read(activeProfileProvider);
+    final caregiverProfile = widget.ref.read(onboardingProfileProvider).value;
+    final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+        ? activeProfile.id
+        : null;
+
+    final List<String> formattedTimes = _doseTimes.map((t) {
+      final hr = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+      final min = t.minute.toString().padLeft(2, '0');
+      final period = t.period == DayPeriod.am ? 'AM' : 'PM';
+      return '${hr.toString().padLeft(2, '0')}:$min $period';
+    }).toList();
+
+    final schedule = MedicationSchedule(
+      id: widget.existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      cabinetItemId: widget.medicine.id,
+      dependentId: dependentId,
+      userUid: user.uid,
+      frequencyPerDay: _doseTimes.length,
+      scheduledTimes: formattedTimes,
+    );
+
+    try {
+      await widget.ref.read(apiServiceProvider).saveSchedule(schedule);
+      widget.ref.invalidate(schedulesProvider);
+      
+      final updatedMedicine = widget.medicine.copyWith(
+        dosageSchedule: '${_doseTimes.length} times/day',
+      );
+      await widget.ref.read(cabinetProvider.notifier).addMedicine(updatedMedicine);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Schedule saved successfully!'),
+            backgroundColor: Color(0xFF2563EB),
+          ),
+        );
+        widget.onSave();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save schedule: $e'),
+            backgroundColor: const Color(0xFFB91C1C),
+          ),
+        );
+      }
+    }
+  }
+
+  void _delete() async {
+    if (widget.existing == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await widget.ref.read(apiServiceProvider).deleteSchedule(user.uid, widget.existing!.id);
+      widget.ref.invalidate(schedulesProvider);
+      
+      final updatedMedicine = widget.medicine.copyWith(
+        dosageSchedule: null,
+      );
+      await widget.ref.read(cabinetProvider.notifier).addMedicine(updatedMedicine);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Schedule deleted successfully!'),
+            backgroundColor: Color(0xFF2563EB),
+          ),
+        );
+        widget.onSave();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete schedule: $e'),
+            backgroundColor: const Color(0xFFB91C1C),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final access = widget.access;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.existing != null ? 'Edit Schedule' : 'Add Schedule',
+                style: access.getTextStyle(baseSize: 20.0, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Frequency Dropdown
+          DropdownButtonFormField<String>(
+            value: _frequency,
+            dropdownColor: Colors.white,
+            style: access.getTextStyle(baseSize: 15.0),
+            decoration: InputDecoration(
+              labelText: 'Frequency',
+              labelStyle: access.getTextStyle(
+                baseSize: 14.0,
+                color: access.textColor.withOpacity(0.6),
+              ),
+              prefixIcon: Icon(
+                Icons.repeat_rounded,
+                color: access.textColor.withOpacity(0.6),
+                size: access.scaleText(20.0),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
+              ),
+            ),
+            items: [
+              'Once Daily',
+              'Twice Daily',
+              'Three Times Daily',
+              'Four Times Daily',
+              'Custom',
+            ].map((f) {
+              return DropdownMenuItem<String>(
+                value: f,
+                child: Text(f, style: access.getTextStyle(baseSize: 15.0)),
+              );
+            }).toList(),
+            onChanged: (val) {
+              if (val != null) {
+                _updateDoseTimesForFrequency(val);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Custom Count Selector
+          if (_frequency == 'Custom') ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Number of doses per day:',
+                  style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: _customTimesCount > 1
+                          ? () {
+                              setState(() {
+                                _customTimesCount--;
+                                _doseTimes.removeLast();
+                              });
+                            }
+                          : null,
+                    ),
+                    Text(
+                      '$_customTimesCount',
+                      style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: _customTimesCount < 12
+                          ? () {
+                              setState(() {
+                                _customTimesCount++;
+                                _doseTimes.add(const TimeOfDay(hour: 9, minute: 0));
+                              });
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Dose time pickers list
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _doseTimes.length,
+              itemBuilder: (context, index) {
+                final time = _doseTimes[index];
+                final hr = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+                final min = time.minute.toString().padLeft(2, '0');
+                final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+                final formattedTime = '${hr.toString().padLeft(2, '0')}:$min $period';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: time,
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _doseTimes[index] = picked;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: access.textColor.withOpacity(0.08), width: 1.5),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.access_time_rounded, color: access.primaryTeal),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Dose ${index + 1}',
+                                style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                formattedTime,
+                                style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold, color: access.primaryTeal),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.arrow_drop_down, color: access.textColor.withOpacity(0.5)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Save / Delete Buttons
+          Row(
+            children: [
+              if (widget.existing != null) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _delete,
+                    icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+                    label: const Text('Delete', style: TextStyle(color: Color(0xFFDC2626))),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.5),
+                      minimumSize: Size(double.infinity, access.minTapTargetSize),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _submit,
+                  icon: const Icon(Icons.save_rounded, color: Colors.white),
+                  label: const Text('Save Plan', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: access.primaryTeal,
+                    minimumSize: Size(double.infinity, access.minTapTargetSize),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

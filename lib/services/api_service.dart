@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/medicine_model.dart';
+import '../models/medication_schedule.dart';
+import '../models/medication_log.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   const baseUrl = String.fromEnvironment(
@@ -249,6 +251,125 @@ class ApiService {
       return data.map((item) => SearchedMedicine.fromJson(item)).toList();
     } catch (e) {
       debugPrint('API_SERVICE: searchMedicines ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Retrieve medication schedules for a user or dependent
+  Future<List<MedicationSchedule>> getSchedules(String uid, {String? dependentId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/schedules?uid=$uid' + (dependentId != null ? '&dependent_id=$dependentId' : ''));
+      debugPrint('API_SERVICE: GET $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Get schedules failed with status: ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic> || decoded['status'] != 'success') {
+        throw Exception('Invalid get schedules response format');
+      }
+
+      final data = decoded['data'];
+      if (data is! List) {
+        return [];
+      }
+
+      return data.map((item) => MedicationSchedule.fromJson(item)).toList();
+    } catch (e) {
+      debugPrint('API_SERVICE: getSchedules ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Save or update a medication schedule
+  Future<void> saveSchedule(MedicationSchedule schedule) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/schedules');
+      debugPrint('API_SERVICE: POST $uri');
+      final response = await http.post(
+        uri,
+        headers: const <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(schedule.toJson()),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Save schedule failed with status: ${response.statusCode}');
+      }
+      debugPrint('API_SERVICE: saveSchedule SUCCESS');
+    } catch (e) {
+      debugPrint('API_SERVICE: saveSchedule ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a medication schedule
+  Future<void> deleteSchedule(String uid, String scheduleId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/schedules/$scheduleId?uid=$uid');
+      debugPrint('API_SERVICE: DELETE $uri');
+      final response = await http.delete(uri);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Delete schedule failed with status: ${response.statusCode}');
+      }
+      debugPrint('API_SERVICE: deleteSchedule SUCCESS');
+    } catch (e) {
+      debugPrint('API_SERVICE: deleteSchedule ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Retrieve daily logs for a given user and date
+  Future<List<MedicationLog>> getLogs(String uid, String date, {String? dependentId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/logs?uid=$uid&date=$date' + (dependentId != null ? '&dependent_id=$dependentId' : ''));
+      debugPrint('API_SERVICE: GET $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Get logs failed with status: ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic> || decoded['status'] != 'success') {
+        throw Exception('Invalid get logs response format');
+      }
+
+      final data = decoded['data'];
+      if (data is! List) {
+        return [];
+      }
+
+      return data.map((item) => MedicationLog.fromJson(item)).toList();
+    } catch (e) {
+      debugPrint('API_SERVICE: getLogs ERROR: $e');
+      rethrow;
+    }
+  }
+
+  /// Save daily medication log status
+  Future<void> saveLog(MedicationLog log) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/logs');
+      debugPrint('API_SERVICE: POST $uri');
+      final response = await http.post(
+        uri,
+        headers: const <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(log.toJson()),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Save log failed with status: ${response.statusCode}');
+      }
+      debugPrint('API_SERVICE: saveLog SUCCESS');
+    } catch (e) {
+      debugPrint('API_SERVICE: saveLog ERROR: $e');
       rethrow;
     }
   }

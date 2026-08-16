@@ -4,6 +4,10 @@ import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'shared_widgets.dart';
 import 'models/medicine_model.dart';
+import 'models/medication_schedule.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'main.dart';
+import 'services/api_service.dart';
 
 class AddMedicineOcrScreen extends ConsumerStatefulWidget {
   final String? mockImageName;
@@ -33,6 +37,43 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
 
   bool _isProcessingImage = true;
   double _ocrConfidence = 0.89; // 89% confidence level simulation
+
+  String _frequency = 'Once Daily';
+  int _customTimesCount = 1;
+  List<TimeOfDay> _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
+
+  void _updateDoseTimesForFrequency(String freq) {
+    setState(() {
+      _frequency = freq;
+      if (freq == 'Once Daily') {
+        _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
+      } else if (freq == 'Twice Daily') {
+        _doseTimes = [
+          const TimeOfDay(hour: 9, minute: 0),
+          const TimeOfDay(hour: 21, minute: 0),
+        ];
+      } else if (freq == 'Three Times Daily') {
+        _doseTimes = [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 14, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      } else if (freq == 'Four Times Daily') {
+        _doseTimes = [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 12, minute: 0),
+          const TimeOfDay(hour: 16, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      } else if (freq == 'Custom') {
+        _customTimesCount = _doseTimes.length;
+        if (_customTimesCount == 0) {
+          _customTimesCount = 1;
+          _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
+        }
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -124,7 +165,7 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     // Parse expiry date
@@ -159,20 +200,50 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       habitForming: widget.prefilledMedicine?.habitForming,
       nickname: _nicknameController.text.trim().isEmpty ? null : _nicknameController.text.trim(),
       quantity: quantity,
-      dosageSchedule: _scheduleController.text.trim().isEmpty ? null : _scheduleController.text.trim(),
+      dosageSchedule: '${_doseTimes.length} times/day',
     );
 
-    // Save to provider
-    ref.read(cabinetProvider.notifier).addMedicine(newMed);
+    // Save to provider (awaits database sync)
+    await ref.read(cabinetProvider.notifier).addMedicine(newMed);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${newMed.name} successfully added to cabinet via OCR!'),
-        backgroundColor: const Color(0xFF0F766E),
-      ),
-    );
+    // Save the MedicationSchedule to database
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final activeProfile = ref.read(activeProfileProvider);
+      final caregiverProfile = ref.read(onboardingProfileProvider).value;
+      final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+          ? activeProfile.id
+          : null;
 
-    Navigator.pop(context); // Go back to cabinet
+      final List<String> formattedTimes = _doseTimes.map((t) {
+        final hr = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+        final min = t.minute.toString().padLeft(2, '0');
+        final period = t.period == DayPeriod.am ? 'AM' : 'PM';
+        return '${hr.toString().padLeft(2, '0')}:$min $period';
+      }).toList();
+
+      final schedule = MedicationSchedule(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        cabinetItemId: newMed.id,
+        dependentId: dependentId,
+        userUid: user.uid,
+        frequencyPerDay: _doseTimes.length,
+        scheduledTimes: formattedTimes,
+      );
+
+      await ref.read(apiServiceProvider).saveSchedule(schedule);
+      ref.invalidate(schedulesProvider);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${newMed.name} successfully added to cabinet!'),
+          backgroundColor: const Color(0xFF2563EB),
+        ),
+      );
+      Navigator.pop(context); // Go back to cabinet
+    }
   }
 
   @override
@@ -395,13 +466,174 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          VoiceInputField(
-                            access: access,
-                            controller: _scheduleController,
-                            labelText: 'Dosage Schedule (Optional)',
-                            icon: Icons.schedule_rounded,
-                            mockTranscript: 'Once daily after breakfast',
+                          // Interactive Medication Schedule Section
+                          const SizedBox(height: 24),
+                          Text(
+                            'Medication Schedule',
+                            style: access.getTextStyle(
+                              baseSize: 18.0,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Specify how often and at what times this medicine should be taken.',
+                            style: access.getTextStyle(
+                              baseSize: 13.0,
+                              color: access.textColor.withOpacity(0.5),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Frequency Dropdown
+                          DropdownButtonFormField<String>(
+                            value: _frequency,
+                            dropdownColor: Colors.white,
+                            style: access.getTextStyle(baseSize: 15.0),
+                            decoration: InputDecoration(
+                              labelText: 'Frequency',
+                              labelStyle: access.getTextStyle(
+                                baseSize: 14.0,
+                                color: access.textColor.withOpacity(0.6),
+                              ),
+                              prefixIcon: Icon(
+                                Icons.repeat_rounded,
+                                color: access.textColor.withOpacity(0.6),
+                                size: access.scaleText(20.0),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
+                              ),
+                            ),
+                            items: [
+                              'Once Daily',
+                              'Twice Daily',
+                              'Three Times Daily',
+                              'Four Times Daily',
+                              'Custom',
+                            ].map((f) {
+                              return DropdownMenuItem<String>(
+                                value: f,
+                                child: Text(f, style: access.getTextStyle(baseSize: 15.0)),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                _updateDoseTimesForFrequency(val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Custom count selector if Custom is selected
+                          if (_frequency == 'Custom') ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Number of doses per day:',
+                                  style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                                ),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline),
+                                      onPressed: _customTimesCount > 1
+                                          ? () {
+                                              setState(() {
+                                                _customTimesCount--;
+                                                _doseTimes.removeLast();
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                                    Text(
+                                      '$_customTimesCount',
+                                      style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.add_circle_outline),
+                                      onPressed: _customTimesCount < 12
+                                          ? () {
+                                              setState(() {
+                                                _customTimesCount++;
+                                                _doseTimes.add(const TimeOfDay(hour: 9, minute: 0));
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          // Dose time list pickers
+                          ...List.generate(_doseTimes.length, (index) {
+                            final time = _doseTimes[index];
+                            final hr = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+                            final min = time.minute.toString().padLeft(2, '0');
+                            final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+                            final formattedTime = '${hr.toString().padLeft(2, '0')}:$min $period';
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: time,
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _doseTimes[index] = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: access.textColor.withOpacity(0.08), width: 1.5),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time_rounded, color: access.primaryTeal),
+                                          const SizedBox(width: 12),
+                                          Text(
+                                            'Dose ${index + 1}',
+                                            style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            formattedTime,
+                                            style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold, color: access.primaryTeal),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(Icons.arrow_drop_down, color: access.textColor.withOpacity(0.5)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
                           const SizedBox(height: 32),
 
                           // Action Buttons
@@ -460,7 +692,7 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: Color(0xFF0F766E)),
+            const CircularProgressIndicator(color: Color(0xFF2563EB)),
             const SizedBox(height: 24),
             Text(
               'Analyzing Prescription Image...',
