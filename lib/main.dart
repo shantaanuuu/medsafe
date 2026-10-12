@@ -61,7 +61,7 @@ class MyApp extends StatelessWidget {
             color: Color(0xFF111827),
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
+            fontFamily: 'Inter',  
           ),
         ),
       ),

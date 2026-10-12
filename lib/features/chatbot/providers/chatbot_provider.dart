@@ -74,7 +74,12 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
 
     try {
       // Build history payload for Gemini
-      final List<Map<String, String>> historyPayload = state.take(state.length - 1).map((msg) {
+      // Keep context useful without repeatedly sending an ever-growing chat
+      // transcript to the language service.
+      final previousMessages = state.take(state.length - 1).toList();
+      final List<Map<String, String>> historyPayload = previousMessages
+          .skip(previousMessages.length > 8 ? previousMessages.length - 8 : 0)
+          .map((msg) {
         return {
           'role': msg.isUser ? 'user' : 'model',
           'text': msg.text,

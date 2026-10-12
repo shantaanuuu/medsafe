@@ -6,17 +6,19 @@ import 'accessibility_config.dart';
 import 'add_medicine_scan.dart';
 import 'interaction_graph.dart';
 import 'symptom_mapper.dart';
+import 'allergy_screen.dart';
 import 'features/medication_entry/manual/manual_search_screen.dart';
 import 'caregiver_dashboard.dart';
 import 'shared_widgets.dart';
 import 'models/user_health_profile.dart';
-import 'models/medicine_model.dart';
 import 'models/medication_schedule.dart';
 import 'models/medication_log.dart';
 import 'shared_states.dart';
 import 'services/api_service.dart';
 import 'features/onboarding/onboarding_flow_screen.dart';
 import 'medicine_detail.dart';
+import 'services/pdf_report_service.dart';
+import 'report_analysis_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HomeScreen — Modern light-theme healthcare dashboard
@@ -47,6 +49,8 @@ class HomeScreen extends ConsumerWidget {
     // ── Health profile ───────────────────────────────────────────────────────
     final authProfileAsync = ref.watch(onboardingProfileProvider);
     final activeProfile = ref.watch(activeProfileProvider);
+    final cabinet = ref.watch(cabinetProvider);
+    final schedules = ref.watch(schedulesProvider).value ?? [];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -59,7 +63,14 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // ── 1. TOP HEADER ROW ─────────────────────────────────────────
-              _buildHeader(context, userName, access),
+              _buildHeader(
+                context,
+                userName,
+                access,
+                activeProfile ?? authProfileAsync.value,
+                cabinet,
+                schedules,
+              ),
 
               const SizedBox(height: 24),
 
@@ -89,8 +100,7 @@ class HomeScreen extends ConsumerWidget {
 
               // ── 3. QUICK ACTIONS ──────────────────────────────────────────
               authProfileAsync.maybeWhen(
-                data: (profile) =>
-                    _buildQuickActions(context, profile, access),
+                data: (profile) => _buildQuickActions(context, profile, access),
                 orElse: () => _buildQuickActions(context, null, access),
               ),
 
@@ -111,14 +121,17 @@ class HomeScreen extends ConsumerWidget {
   // Caregiver Dependents Section
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildCaregiverDependents(
-      BuildContext context, WidgetRef ref, AccessibilityConfig access) {
+    BuildContext context,
+    WidgetRef ref,
+    AccessibilityConfig access,
+  ) {
     final dependents = ref.watch(dependentProvider);
     final user = FirebaseAuth.instance.currentUser;
     final userEmail = user?.email ?? 'User';
     final userName = user?.displayName ?? userEmail.split('@')[0];
     final authProfileAsync = ref.watch(onboardingProfileProvider);
     final activeProfile = ref.watch(activeProfileProvider);
-    
+
     if (dependents.isEmpty) {
       return Container(
         width: double.infinity,
@@ -151,7 +164,8 @@ class HomeScreen extends ConsumerWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const OnboardingFlowScreen(isAddingDependent: true),
+                    builder: (context) =>
+                        const OnboardingFlowScreen(isAddingDependent: true),
                   ),
                 );
               },
@@ -169,7 +183,10 @@ class HomeScreen extends ConsumerWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
               ),
             ),
           ],
@@ -196,21 +213,29 @@ class HomeScreen extends ConsumerWidget {
             children: [
               // Self (Caregiver) Card
               (() {
-                final bool isSelfSelected = activeProfile == null || activeProfile.id == authProfileAsync.value?.id;
+                final bool isSelfSelected =
+                    activeProfile == null ||
+                    activeProfile.id == authProfileAsync.value?.id;
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: GestureDetector(
                     onTap: () {
-                      ref.read(activeProfileProvider.notifier).setActiveProfile(authProfileAsync.value);
+                      ref
+                          .read(activeProfileProvider.notifier)
+                          .setActiveProfile(authProfileAsync.value);
                     },
                     child: Container(
                       width: 140,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isSelfSelected ? const Color(0xFFE8F0FF) : Colors.white,
+                        color: isSelfSelected
+                            ? const Color(0xFFE8F0FF)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: isSelfSelected ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
+                          color: isSelfSelected
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFFE5E7EB),
                           width: isSelfSelected ? 1.5 : 1,
                         ),
                         boxShadow: [
@@ -229,7 +254,9 @@ class HomeScreen extends ConsumerWidget {
                             backgroundColor: const Color(0xFFDCFCE7),
                             child: Icon(
                               Icons.admin_panel_settings_rounded,
-                              color: isSelfSelected ? const Color(0xFF16A34A) : const Color(0xFF16A34A).withOpacity(0.7),
+                              color: isSelfSelected
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFF16A34A).withOpacity(0.7),
                               size: 18,
                             ),
                           ),
@@ -267,24 +294,35 @@ class HomeScreen extends ConsumerWidget {
                 );
               })(),
               ...dependents.map((dep) {
-                final String initial = dep.name.isNotEmpty ? dep.name[0].toUpperCase() : '?';
+                final String initial = dep.name.isNotEmpty
+                    ? dep.name[0].toUpperCase()
+                    : '?';
                 final bool isSelected = activeProfile?.id == dep.id;
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: GestureDetector(
                     onTap: () {
-                      final profiles = ref.read(allProfilesProvider).value ?? [];
-                      final depProfile = profiles.firstWhere((p) => p.id == dep.id);
-                      ref.read(activeProfileProvider.notifier).setActiveProfile(depProfile);
+                      final profiles =
+                          ref.read(allProfilesProvider).value ?? [];
+                      final depProfile = profiles.firstWhere(
+                        (p) => p.id == dep.id,
+                      );
+                      ref
+                          .read(activeProfileProvider.notifier)
+                          .setActiveProfile(depProfile);
                     },
                     child: Container(
                       width: 140,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFE8F0FF) : Colors.white,
+                        color: isSelected
+                            ? const Color(0xFFE8F0FF)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB),
+                          color: isSelected
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFFE5E7EB),
                           width: isSelected ? 1.5 : 1,
                         ),
                         boxShadow: [
@@ -347,7 +385,8 @@ class HomeScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const OnboardingFlowScreen(isAddingDependent: true),
+                      builder: (context) =>
+                          const OnboardingFlowScreen(isAddingDependent: true),
                     ),
                   );
                 },
@@ -358,12 +397,18 @@ class HomeScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F0FF),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.add_circle_outline, color: Color(0xFF2563EB), size: 32),
+                      const Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFF2563EB),
+                        size: 32,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'Add Dependent',
@@ -389,18 +434,20 @@ class HomeScreen extends ConsumerWidget {
   // Header
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildHeader(
-      BuildContext context, String userName, AccessibilityConfig access) {
+    BuildContext context,
+    String userName,
+    AccessibilityConfig access,
+    UserHealthProfile? reportProfile,
+    List<Medicine> cabinet,
+    List<MedicationSchedule> schedules,
+  ) {
     return Row(
       children: [
         // Avatar
         const CircleAvatar(
           radius: 24,
           backgroundColor: Color(0xFF2563EB),
-          child: Icon(
-            Icons.person_rounded,
-            color: Colors.white,
-            size: 26,
-          ),
+          child: Icon(Icons.person_rounded, color: Colors.white, size: 26),
         ),
         const SizedBox(width: 12),
 
@@ -429,6 +476,29 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
 
+        if (reportProfile != null) ...[
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.picture_as_pdf_outlined,
+                color: Color(0xFF2563EB),
+                size: 20,
+              ),
+              tooltip: 'Export medical summary',
+              onPressed: () => PdfReportService.shareDoctorReport(
+                profile: reportProfile,
+                medicines: cabinet,
+                schedules: schedules,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         // Notification Bell icon
         Container(
           decoration: BoxDecoration(
@@ -532,8 +602,11 @@ class HomeScreen extends ConsumerWidget {
   // Health Profile Card
   // ───────────────────────────────────────────────────────────────────────────
   Widget _buildHealthProfile(
-      UserHealthProfile profile, AccessibilityConfig access) {
-    final hasStats = profile.age != null ||
+    UserHealthProfile profile,
+    AccessibilityConfig access,
+  ) {
+    final hasStats =
+        profile.age != null ||
         profile.weightKg != null ||
         (profile.sex != null && profile.sex != 'Prefer not to say');
 
@@ -582,8 +655,8 @@ class HomeScreen extends ConsumerWidget {
                     radius: 20,
                     backgroundColor: const Color(0xFFE8F0FF),
                     child: Text(
-                      (profile.nickname?.isNotEmpty == true) 
-                          ? profile.nickname![0].toUpperCase() 
+                      (profile.nickname?.isNotEmpty == true)
+                          ? profile.nickname![0].toUpperCase()
                           : 'P',
                       style: const TextStyle(
                         color: Color(0xFF2563EB),
@@ -673,12 +746,14 @@ class HomeScreen extends ConsumerWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: profile.chronicConditions
-                      .map((c) => _chip(
-                            label: c,
-                            textColor: const Color(0xFF2563EB),
-                            bgColor: const Color(0xFFE8F0FF),
-                            access: access,
-                          ))
+                      .map(
+                        (c) => _chip(
+                          label: c,
+                          textColor: const Color(0xFF2563EB),
+                          bgColor: const Color(0xFFE8F0FF),
+                          access: access,
+                        ),
+                      )
                       .toList(),
                 ),
               ],
@@ -698,12 +773,14 @@ class HomeScreen extends ConsumerWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: profile.allergies
-                      .map((a) => _chip(
-                            label: a,
-                            textColor: const Color(0xFFDC2626),
-                            bgColor: const Color(0xFFFEF2F2),
-                            access: access,
-                          ))
+                      .map(
+                        (a) => _chip(
+                          label: a,
+                          textColor: const Color(0xFFDC2626),
+                          bgColor: const Color(0xFFFEF2F2),
+                          access: access,
+                        ),
+                      )
                       .toList(),
                 ),
               ],
@@ -723,12 +800,14 @@ class HomeScreen extends ConsumerWidget {
                   spacing: 8,
                   runSpacing: 6,
                   children: profile.currentMedications
-                      .map((m) => _chip(
-                            label: m.medicineName,
-                            textColor: const Color(0xFF16A34A),
-                            bgColor: const Color(0xFFDDF7E8),
-                            access: access,
-                          ))
+                      .map(
+                        (m) => _chip(
+                          label: m.medicineName,
+                          textColor: const Color(0xFF16A34A),
+                          bgColor: const Color(0xFFDDF7E8),
+                          access: access,
+                        ),
+                      )
                       .toList(),
                 ),
               ],
@@ -857,6 +936,28 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
       _QuickAction(
+        title: 'Allergy Center',
+        subtitle: 'Reactions & medicine safety',
+        icon: Icons.health_and_safety_outlined,
+        iconColor: const Color(0xFFEA580C),
+        iconBgColor: const Color(0xFFFFEDD5),
+        onTap: (ctx) => Navigator.push(
+          ctx,
+          MaterialPageRoute(builder: (_) => const AllergyCenterScreen()),
+        ),
+      ),
+      _QuickAction(
+        title: 'Report Analysis',
+        subtitle: 'Blood test & PDF reports',
+        icon: Icons.query_stats_rounded,
+        iconColor: const Color(0xFF7C3AED),
+        iconBgColor: const Color(0xFFF3E8FF),
+        onTap: (ctx) => Navigator.push(
+          ctx,
+          MaterialPageRoute(builder: (_) => const ReportAnalysisScreen()),
+        ),
+      ),
+      _QuickAction(
         title: 'Manual Search',
         subtitle: 'Search by name',
         icon: Icons.edit_note_rounded,
@@ -876,8 +977,7 @@ class HomeScreen extends ConsumerWidget {
           iconBgColor: const Color(0xFFE8F0FF),
           onTap: (ctx) => Navigator.push(
             ctx,
-            MaterialPageRoute(
-                builder: (_) => const CaregiverDashboardScreen()),
+            MaterialPageRoute(builder: (_) => const CaregiverDashboardScreen()),
           ),
         ),
     ];
@@ -909,68 +1009,69 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 12),
 
         // Grid — 2-column layout using paired rows
-        ...List.generate(
-          (actions.length / 2).ceil(),
-          (rowIndex) {
-            final left = actions[rowIndex * 2];
-            final rightIndex = rowIndex * 2 + 1;
-            final right =
-                rightIndex < actions.length ? actions[rightIndex] : null;
+        ...List.generate((actions.length / 2).ceil(), (rowIndex) {
+          final left = actions[rowIndex * 2];
+          final rightIndex = rowIndex * 2 + 1;
+          final right = rightIndex < actions.length
+              ? actions[rightIndex]
+              : null;
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: QuickActionCard(
+                    title: left.title,
+                    subtitle: left.subtitle,
+                    icon: left.icon,
+                    iconColor: left.iconColor,
+                    iconBgColor: left.iconBgColor,
+                    onTap: () => left.onTap(context),
+                    access: access,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (right != null)
                   Expanded(
                     child: QuickActionCard(
-                      title: left.title,
-                      subtitle: left.subtitle,
-                      icon: left.icon,
-                      iconColor: left.iconColor,
-                      iconBgColor: left.iconBgColor,
-                      onTap: () => left.onTap(context),
+                      title: right.title,
+                      subtitle: right.subtitle,
+                      icon: right.icon,
+                      iconColor: right.iconColor,
+                      iconBgColor: right.iconBgColor,
+                      onTap: () => right.onTap(context),
                       access: access,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  if (right != null)
-                    Expanded(
-                      child: QuickActionCard(
-                        title: right.title,
-                        subtitle: right.subtitle,
-                        icon: right.icon,
-                        iconColor: right.iconColor,
-                        iconBgColor: right.iconBgColor,
-                        onTap: () => right.onTap(context),
-                        access: access,
-                      ),
-                    )
-                  else
-                    // Empty spacer to keep left card half-width when odd count
-                    const Expanded(child: SizedBox.shrink()),
-                ],
-              ),
-            );
-          },
-        ),
+                  )
+                else
+                  // Empty spacer to keep left card half-width when odd count
+                  const Expanded(child: SizedBox.shrink()),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
-
 
   // ───────────────────────────────────────────────────────────────────────────
   // Dashboard Overview
   // ───────────────────────────────────────────────────────────────────────────
   // Cabinet Medications Section
   // ───────────────────────────────────────────────────────────────────────────
-  static const Color _kPrimaryBlue   = Color(0xFF2563EB);
-  static const Color _kBlueLight     = Color(0xFFE8F0FF);
-  static const Color _kTextPrimary   = Color(0xFF111827);
-  static const Color _kTextSecond    = Color(0xFF6B7280);
-  static const Color _kIconMuted     = Color(0xFF9CA3AF);
-  static const Color _kCardBorder    = Color(0xFFE5E7EB);
+  static const Color _kPrimaryBlue = Color(0xFF2563EB);
+  static const Color _kBlueLight = Color(0xFFE8F0FF);
+  static const Color _kTextPrimary = Color(0xFF111827);
+  static const Color _kTextSecond = Color(0xFF6B7280);
+  static const Color _kIconMuted = Color(0xFF9CA3AF);
+  static const Color _kCardBorder = Color(0xFFE5E7EB);
 
-  Widget _buildCabinetMedsSection(BuildContext context, WidgetRef ref, AccessibilityConfig access) {
+  Widget _buildCabinetMedsSection(
+    BuildContext context,
+    WidgetRef ref,
+    AccessibilityConfig access,
+  ) {
     final cabinet = ref.watch(cabinetProvider);
 
     return Column(
@@ -1001,7 +1102,10 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyCabinetState(BuildContext context, AccessibilityConfig access) {
+  Widget _buildEmptyCabinetState(
+    BuildContext context,
+    AccessibilityConfig access,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -1019,11 +1123,19 @@ class HomeScreen extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.medication_outlined, size: 48, color: _kIconMuted.withOpacity(0.5)),
+          Icon(
+            Icons.medication_outlined,
+            size: 48,
+            color: _kIconMuted.withOpacity(0.5),
+          ),
           const SizedBox(height: 12),
           Text(
             'Your cabinet is empty',
-            style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold, color: _kTextPrimary),
+            style: access.getTextStyle(
+              baseSize: 15.0,
+              fontWeight: FontWeight.bold,
+              color: _kTextPrimary,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -1036,9 +1148,14 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMedicineCardItem(Medicine medicine, AccessibilityConfig access, WidgetRef ref, BuildContext context) {
+  Widget _buildMedicineCardItem(
+    Medicine medicine,
+    AccessibilityConfig access,
+    WidgetRef ref,
+    BuildContext context,
+  ) {
     final diff = medicine.expiryDate.difference(DateTime.now()).inDays;
-    
+
     String statusText;
     Color statusBg;
     Color statusColor;
@@ -1107,7 +1224,11 @@ class HomeScreen extends ConsumerWidget {
                     color: _kBlueLight,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.medication_rounded, color: _kPrimaryBlue, size: 28),
+                  child: const Icon(
+                    Icons.medication_rounded,
+                    color: _kPrimaryBlue,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1133,18 +1254,32 @@ class HomeScreen extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.inventory_2_outlined, size: 14, color: _kIconMuted),
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 14,
+                            color: _kIconMuted,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             medicine.dosageForm ?? 'Tablet',
-                            style: access.getTextStyle(baseSize: 12.0, color: _kTextSecond),
+                            style: access.getTextStyle(
+                              baseSize: 12.0,
+                              color: _kTextSecond,
+                            ),
                           ),
                           const SizedBox(width: 16),
-                          Icon(Icons.event_outlined, size: 14, color: _kIconMuted),
+                          Icon(
+                            Icons.event_outlined,
+                            size: 14,
+                            color: _kIconMuted,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Exp: ${medicine.expiryDate.month}/${medicine.expiryDate.year}',
-                            style: access.getTextStyle(baseSize: 12.0, color: _kTextSecond),
+                            style: access.getTextStyle(
+                              baseSize: 12.0,
+                              color: _kTextSecond,
+                            ),
                           ),
                         ],
                       ),
@@ -1153,7 +1288,11 @@ class HomeScreen extends ConsumerWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.schedule_rounded, size: 14, color: access.primaryTeal),
+                            Icon(
+                              Icons.schedule_rounded,
+                              size: 14,
+                              color: access.primaryTeal,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Column(
@@ -1194,10 +1333,12 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         ...schedule.scheduledTimes.map((timeStr) {
-                          final isTaken = logsList.any((l) =>
-                              l.cabinetItemId == medicine.id &&
-                              l.doseTime == timeStr &&
-                              l.taken);
+                          final isTaken = logsList.any(
+                            (l) =>
+                                l.cabinetItemId == medicine.id &&
+                                l.doseTime == timeStr &&
+                                l.taken,
+                          );
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
@@ -1219,8 +1360,12 @@ class HomeScreen extends ConsumerWidget {
                                       timeStr,
                                       style: access.getTextStyle(
                                         baseSize: 13.0,
-                                        fontWeight: isTaken ? FontWeight.bold : FontWeight.normal,
-                                        color: isTaken ? access.primaryTeal : access.textColor,
+                                        fontWeight: isTaken
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isTaken
+                                            ? access.primaryTeal
+                                            : access.textColor,
                                       ),
                                     ),
                                   ],
@@ -1230,16 +1375,28 @@ class HomeScreen extends ConsumerWidget {
                                   child: Switch(
                                     value: isTaken,
                                     activeColor: access.primaryTeal,
-                                    activeTrackColor: access.primaryTeal.withOpacity(0.2),
+                                    activeTrackColor: access.primaryTeal
+                                        .withOpacity(0.2),
                                     inactiveThumbColor: Colors.white,
-                                    inactiveTrackColor: access.textColor.withOpacity(0.08),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    inactiveTrackColor: access.textColor
+                                        .withOpacity(0.08),
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                     onChanged: (val) async {
-                                      final user = FirebaseAuth.instance.currentUser;
+                                      final user =
+                                          FirebaseAuth.instance.currentUser;
                                       if (user == null) return;
-                                      final activeProfile = ref.read(activeProfileProvider);
-                                      final caregiverProfile = ref.read(onboardingProfileProvider).value;
-                                      final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+                                      final activeProfile = ref.read(
+                                        activeProfileProvider,
+                                      );
+                                      final caregiverProfile = ref
+                                          .read(onboardingProfileProvider)
+                                          .value;
+                                      final String? dependentId =
+                                          (activeProfile != null &&
+                                              caregiverProfile != null &&
+                                              activeProfile.id !=
+                                                  caregiverProfile.id)
                                           ? activeProfile.id
                                           : null;
 
@@ -1254,7 +1411,9 @@ class HomeScreen extends ConsumerWidget {
                                       );
 
                                       try {
-                                        await ref.read(apiServiceProvider).saveLog(log);
+                                        await ref
+                                            .read(apiServiceProvider)
+                                            .saveLog(log);
                                         ref.invalidate(logsProvider(todayStr));
                                       } catch (e) {
                                         debugPrint("TOGGLE DOSE ERROR: $e");
@@ -1271,7 +1430,10 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(8),
@@ -1305,7 +1467,9 @@ class HomeScreen extends ConsumerWidget {
                   label: 'Delete',
                   color: const Color(0xFFDC2626),
                   onTap: () {
-                    ref.read(cabinetProvider.notifier).removeMedicine(medicine.id);
+                    ref
+                        .read(cabinetProvider.notifier)
+                        .removeMedicine(medicine.id);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('${medicine.name} removed from cabinet.'),
@@ -1322,7 +1486,9 @@ class HomeScreen extends ConsumerWidget {
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Dose confirmed for ${medicine.name}. Logged in adherence history.'),
+                        content: Text(
+                          'Dose confirmed for ${medicine.name}. Logged in adherence history.',
+                        ),
                         backgroundColor: access.successGreen,
                       ),
                     );
@@ -1387,4 +1553,3 @@ class _QuickAction {
     required this.onTap,
   });
 }
-

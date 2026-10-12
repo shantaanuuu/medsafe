@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'shared_widgets.dart';
+import 'services/pdf_report_service.dart';
 
 class EmergencyCardScreen extends ConsumerWidget {
   final Dependent dependent;
@@ -29,7 +30,10 @@ class EmergencyCardScreen extends ConsumerWidget {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 4.0,
+            ),
             child: ElderlyModeToggle(
               access: access,
               value: isElderlyMode,
@@ -102,7 +106,10 @@ class EmergencyCardScreen extends ConsumerWidget {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: access.alertRed.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(8),
@@ -123,7 +130,10 @@ class EmergencyCardScreen extends ConsumerWidget {
                         // Name/Age/Weight
                         Text(
                           dependent.name.toUpperCase(),
-                          style: access.getTextStyle(baseSize: 22.0, fontWeight: FontWeight.bold),
+                          style: access.getTextStyle(
+                            baseSize: 22.0,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -149,14 +159,25 @@ class EmergencyCardScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         if (dependent.allergies.isEmpty)
-                          Text('NONE REPORTED', style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold))
+                          Text(
+                            'NONE REPORTED',
+                            style: access.getTextStyle(
+                              baseSize: 14.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                         else
                           Wrap(
                             spacing: 8,
                             children: dependent.allergies.map((allergy) {
                               return Chip(
-                                backgroundColor: access.alertRed.withOpacity(0.08),
-                                side: BorderSide(color: access.alertRed, width: 1.5),
+                                backgroundColor: access.alertRed.withOpacity(
+                                  0.08,
+                                ),
+                                side: BorderSide(
+                                  color: access.alertRed,
+                                  width: 1.5,
+                                ),
                                 label: Text(
                                   allergy,
                                   style: access.getTextStyle(
@@ -183,7 +204,10 @@ class EmergencyCardScreen extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Text(
                           dependent.conditions.join(', '),
-                          style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold),
+                          style: access.getTextStyle(
+                            baseSize: 15.0,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
 
                         const SizedBox(height: 20),
@@ -198,13 +222,18 @@ class EmergencyCardScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        ...dependent.adherenceLog.map((log) => Padding(
-                              padding: const EdgeInsets.only(bottom: 4.0),
-                              child: Text(
-                                '• ${log.medicineName}',
-                                style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold),
+                        ...dependent.adherenceLog.map(
+                          (log) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4.0),
+                            child: Text(
+                              '• ${log.medicineName}',
+                              style: access.getTextStyle(
+                                baseSize: 14.0,
+                                fontWeight: FontWeight.bold,
                               ),
-                            )),
+                            ),
+                          ),
+                        ),
 
                         const SizedBox(height: 20),
                         const Divider(height: 1),
@@ -222,7 +251,10 @@ class EmergencyCardScreen extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Text(
                           dependent.emergencyContactName,
-                          style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold),
+                          style: access.getTextStyle(
+                            baseSize: 15.0,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -241,15 +273,14 @@ class EmergencyCardScreen extends ConsumerWidget {
 
                   // Share/Export Button
                   ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Exporting Emergency Card PDF...'),
-                          backgroundColor: access.primaryTeal,
-                        ),
-                      );
+                    onPressed: () async {
+                      await PdfReportService.shareEmergencyCard(dependent);
                     },
-                    icon: Icon(Icons.share_rounded, size: access.scaleText(20.0), color: Colors.white),
+                    icon: Icon(
+                      Icons.share_rounded,
+                      size: access.scaleText(20.0),
+                      color: Colors.white,
+                    ),
                     label: Text(
                       'Share / Export Card as PDF',
                       style: access.getTextStyle(
@@ -261,9 +292,14 @@ class EmergencyCardScreen extends ConsumerWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: access.primaryTeal,
                       foregroundColor: Colors.white,
-                      minimumSize: Size(double.infinity, access.minTapTargetSize),
+                      minimumSize: Size(
+                        double.infinity,
+                        access.minTapTargetSize,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
                 ],

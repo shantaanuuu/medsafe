@@ -8,20 +8,21 @@ import 'medicine_detail.dart';
 import 'pharmacy_fallback.dart';
 import 'features/medication_entry/manual/manual_search_screen.dart';
 import 'models/medication_schedule.dart';
+import 'prescription_scan_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const _kBackground   = Color(0xFFF8FAFC);
-const _kPrimaryBlue  = Color(0xFF2563EB);
-const _kCardBorder   = Color(0xFFE5E7EB);
-const _kTextPrimary  = Color(0xFF111827);
-const _kTextSecond   = Color(0xFF6B7280);
-const _kIconMuted    = Color(0xFF9CA3AF);
-const _kSearchFill   = Color(0xFFF1F5F9);
-const _kAlertBg      = Color(0xFFFEF2F2);
-const _kAlertBorder  = Color(0xFFFCA5A5);
-const _kBlueLight    = Color(0xFFE8F0FF);
-const _kGreenLight   = Color(0xFFD1FAE5);
-const _kGreenIcon    = Color(0xFF059669);
+const _kBackground = Color(0xFFF8FAFC);
+const _kPrimaryBlue = Color(0xFF2563EB);
+const _kCardBorder = Color(0xFFE5E7EB);
+const _kTextPrimary = Color(0xFF111827);
+const _kTextSecond = Color(0xFF6B7280);
+const _kIconMuted = Color(0xFF9CA3AF);
+const _kSearchFill = Color(0xFFF1F5F9);
+const _kAlertBg = Color(0xFFFEF2F2);
+const _kAlertBorder = Color(0xFFFCA5A5);
+const _kBlueLight = Color(0xFFE8F0FF);
+const _kGreenLight = Color(0xFFD1FAE5);
+const _kGreenIcon = Color(0xFF059669);
 // ──────────────────────────────────────────────────────────────────────────────
 
 class CabinetScreen extends ConsumerStatefulWidget {
@@ -44,17 +45,21 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch providers (Logic preserved strictly)
-    final isElderlyMode     = ref.watch(elderlyModeProvider);
-    final cabinet           = ref.watch(cabinetProvider);
-    final syncState         = ref.watch(syncProvider);
+    final isElderlyMode = ref.watch(elderlyModeProvider);
+    final cabinet = ref.watch(cabinetProvider);
+    final syncState = ref.watch(syncProvider);
 
     // Initialize accessibility configuration
     final access = AccessibilityConfig(isElderlyMode: isElderlyMode);
 
     // Filter cabinet based on search query
     final filteredCabinet = cabinet.where((med) {
-      final nameMatch    = med.name.toLowerCase().contains(_searchQuery.toLowerCase());
-      final genericMatch = med.genericName.toLowerCase().contains(_searchQuery.toLowerCase());
+      final nameMatch = med.name.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
+      final genericMatch = med.genericName.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
       return nameMatch || genericMatch;
     }).toList();
 
@@ -76,10 +81,7 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
             ),
             Text(
               '${filteredCabinet.length} medicines stored',
-              style: access.getTextStyle(
-                baseSize: 14.0,
-                color: _kTextSecond,
-              ),
+              style: access.getTextStyle(baseSize: 14.0, color: _kTextSecond),
             ),
           ],
         ),
@@ -105,7 +107,7 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
             horizontal: access.scaleSpacing(20.0),
-            vertical:   access.scaleSpacing(16.0),
+            vertical: access.scaleSpacing(16.0),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,9 +118,12 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
               if (syncState.isOffline)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
-                  child: OfflineSyncBanner(access: access, lastSynced: syncState.lastSynced),
+                  child: OfflineSyncBanner(
+                    access: access,
+                    lastSynced: syncState.lastSynced,
+                  ),
                 ),
-              
+
               if (filteredCabinet.isEmpty)
                 _buildEmptyState(access)
               else
@@ -128,7 +133,12 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                   itemCount: filteredCabinet.length,
                   itemBuilder: (context, index) {
                     final medicine = filteredCabinet[index];
-                    return _buildMedicineCardItem(medicine, access, ref, context);
+                    return _buildMedicineCardItem(
+                      medicine,
+                      access,
+                      ref,
+                      context,
+                    );
                   },
                 ),
             ],
@@ -138,9 +148,14 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
     );
   }
 
-  Widget _buildMedicineCardItem(Medicine medicine, AccessibilityConfig access, WidgetRef ref, BuildContext context) {
+  Widget _buildMedicineCardItem(
+    Medicine medicine,
+    AccessibilityConfig access,
+    WidgetRef ref,
+    BuildContext context,
+  ) {
     final diff = medicine.expiryDate.difference(DateTime.now()).inDays;
-    
+
     String statusText;
     Color statusBg;
     Color statusColor;
@@ -205,7 +220,11 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                     color: _kBlueLight,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.medication_rounded, color: _kPrimaryBlue, size: 28),
+                  child: const Icon(
+                    Icons.medication_rounded,
+                    color: _kPrimaryBlue,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -231,18 +250,32 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.inventory_2_outlined, size: 14, color: _kIconMuted),
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 14,
+                            color: _kIconMuted,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             medicine.dosageForm ?? 'Tablet',
-                            style: access.getTextStyle(baseSize: 12.0, color: _kTextSecond),
+                            style: access.getTextStyle(
+                              baseSize: 12.0,
+                              color: _kTextSecond,
+                            ),
                           ),
                           const SizedBox(width: 16),
-                          Icon(Icons.event_outlined, size: 14, color: _kIconMuted),
+                          Icon(
+                            Icons.event_outlined,
+                            size: 14,
+                            color: _kIconMuted,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Exp: ${medicine.expiryDate.month}/${medicine.expiryDate.year}',
-                            style: access.getTextStyle(baseSize: 12.0, color: _kTextSecond),
+                            style: access.getTextStyle(
+                              baseSize: 12.0,
+                              color: _kTextSecond,
+                            ),
                           ),
                         ],
                       ),
@@ -251,7 +284,11 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.schedule_rounded, size: 14, color: access.primaryTeal),
+                            Icon(
+                              Icons.schedule_rounded,
+                              size: 14,
+                              color: access.primaryTeal,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Column(
@@ -282,7 +319,10 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(8),
@@ -316,7 +356,9 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                   label: 'Delete',
                   color: const Color(0xFFDC2626),
                   onTap: () {
-                    ref.read(cabinetProvider.notifier).removeMedicine(medicine.id);
+                    ref
+                        .read(cabinetProvider.notifier)
+                        .removeMedicine(medicine.id);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('${medicine.name} removed from cabinet.'),
@@ -333,7 +375,9 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Dose confirmed for ${medicine.name}. Logged in adherence history.'),
+                        content: Text(
+                          'Dose confirmed for ${medicine.name}. Logged in adherence history.',
+                        ),
                         backgroundColor: access.successGreen,
                       ),
                     );
@@ -377,8 +421,6 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
     );
   }
 
-
-
   // 2. SEARCH
   Widget _buildSearchBar(AccessibilityConfig access) {
     return Container(
@@ -392,8 +434,11 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
         decoration: InputDecoration(
           hintText: 'Search medicines...',
           hintStyle: access.getTextStyle(baseSize: 15.0, color: _kIconMuted),
-          prefixIcon: Icon(Icons.search_rounded,
-              color: _kIconMuted, size: access.scaleText(22.0)),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: _kIconMuted,
+            size: access.scaleText(22.0),
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded, color: _kIconMuted),
@@ -425,9 +470,11 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
     );
   }
 
-
   // ── FAB BOTTOM SHEET ──────────────────────────────────────────────────────
-  void _showAddMedicineBottomSheet(BuildContext context, AccessibilityConfig access) {
+  void _showAddMedicineBottomSheet(
+    BuildContext context,
+    AccessibilityConfig access,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -437,7 +484,10 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
       builder: (BuildContext context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 20.0),
+            padding: const EdgeInsets.symmetric(
+              vertical: 24.0,
+              horizontal: 20.0,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -462,21 +512,67 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: _kBlueLight,
-                    child: Icon(Icons.qr_code_scanner_rounded, color: _kPrimaryBlue),
+                    child: Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: _kPrimaryBlue,
+                    ),
                   ),
                   title: Text(
                     'Scan Package',
-                    style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                    style: access.getTextStyle(
+                      baseSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   subtitle: Text(
                     'Scan barcode or text using your camera',
-                    style: access.getTextStyle(baseSize: 13.0, color: _kTextSecond),
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      color: _kTextSecond,
+                    ),
                   ),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const AddMedicineScanScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const AddMedicineScanScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFFF3E0),
+                    child: Icon(
+                      Icons.description_outlined,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                  title: Text(
+                    'Scan doctor prescription',
+                    style: access.getTextStyle(
+                      baseSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Read multiple medicines from a prescription photo',
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      color: _kTextSecond,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PrescriptionScanScreen(),
+                      ),
                     );
                   },
                 ),
@@ -490,17 +586,25 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
                   ),
                   title: Text(
                     'Add Manually',
-                    style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                    style: access.getTextStyle(
+                      baseSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   subtitle: Text(
                     'Type medicine name to search database',
-                    style: access.getTextStyle(baseSize: 13.0, color: _kTextSecond),
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      color: _kTextSecond,
+                    ),
                   ),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ManualSearchScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const ManualSearchScreen(),
+                      ),
                     );
                   },
                 ),
@@ -543,5 +647,4 @@ class _CabinetScreenState extends ConsumerState<CabinetScreen> {
       ),
     );
   }
-
 }

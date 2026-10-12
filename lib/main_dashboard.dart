@@ -8,6 +8,7 @@ import 'add_medicine_scan.dart';
 import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'features/medication_entry/manual/manual_search_screen.dart';
+import 'prescription_scan_screen.dart';
 import 'features/chatbot/widgets/chatbot_overlay.dart';
 import 'features/chatbot/providers/chatbot_provider.dart';
 
@@ -32,7 +33,9 @@ class _MainDashboardState extends ConsumerState<MainDashboard> {
   void _onTabTapped(int index) {
     if (index == 1) {
       // Trigger Scan Bottom Sheet
-      final access = AccessibilityConfig(isElderlyMode: ref.read(elderlyModeProvider));
+      final access = AccessibilityConfig(
+        isElderlyMode: ref.read(elderlyModeProvider),
+      );
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -46,7 +49,10 @@ class _MainDashboardState extends ConsumerState<MainDashboard> {
     });
   }
 
-  Widget _buildScanBottomSheet(BuildContext context, AccessibilityConfig access) {
+  Widget _buildScanBottomSheet(
+    BuildContext context,
+    AccessibilityConfig access,
+  ) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -78,21 +84,65 @@ class _MainDashboardState extends ConsumerState<MainDashboard> {
             ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFE8F0FF),
-                child: Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF2563EB)),
+                child: Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: Color(0xFF2563EB),
+                ),
               ),
               title: Text(
                 'Scan Package or Barcode',
-                style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                style: access.getTextStyle(
+                  baseSize: 16.0,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               subtitle: Text(
                 'Use camera to scan medicine box',
-                style: access.getTextStyle(baseSize: 13.0, color: const Color(0xFF6B7280)),
+                style: access.getTextStyle(
+                  baseSize: 13.0,
+                  color: const Color(0xFF6B7280),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AddMedicineScanScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const AddMedicineScanScreen(),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFFFFF3E0),
+                child: Icon(
+                  Icons.description_outlined,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+              title: Text(
+                'Scan doctor prescription',
+                style: access.getTextStyle(
+                  baseSize: 16.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                'Read multiple medicines from a prescription photo',
+                style: access.getTextStyle(
+                  baseSize: 13.0,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PrescriptionScanScreen(),
+                  ),
                 );
               },
             ),
@@ -104,17 +154,25 @@ class _MainDashboardState extends ConsumerState<MainDashboard> {
               ),
               title: Text(
                 'Add Manually',
-                style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                style: access.getTextStyle(
+                  baseSize: 16.0,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               subtitle: Text(
                 'Type medicine name to search database',
-                style: access.getTextStyle(baseSize: 13.0, color: const Color(0xFF6B7280)),
+                style: access.getTextStyle(
+                  baseSize: 13.0,
+                  color: const Color(0xFF6B7280),
+                ),
               ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ManualSearchScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const ManualSearchScreen(),
+                  ),
                 );
               },
             ),
@@ -142,7 +200,9 @@ class _MainDashboardState extends ConsumerState<MainDashboard> {
 
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex == 1 ? 0 : _currentIndex, // fallback if scan is selected somehow
+        index: _currentIndex == 1
+            ? 0
+            : _currentIndex, // fallback if scan is selected somehow
         children: _screens,
       ),
       floatingActionButton: const ChatbotOverlayButton(),
@@ -157,28 +217,49 @@ class _MainDashboardState extends ConsumerState<MainDashboard> {
           type: BottomNavigationBarType.fixed,
           selectedItemColor: const Color(0xFF2563EB),
           unselectedItemColor: const Color(0xFF9CA3AF),
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 12,
+          ),
           elevation: 0,
           items: const [
             BottomNavigationBarItem(
-              icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.home_rounded)),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.home_rounded),
+              ),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.center_focus_weak_rounded)),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.center_focus_weak_rounded),
+              ),
               label: 'Scan',
             ),
             BottomNavigationBarItem(
-              icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.notifications_rounded)),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.notifications_rounded),
+              ),
               label: 'Alerts',
             ),
             BottomNavigationBarItem(
-              icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.medication_rounded)),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.medication_rounded),
+              ),
               label: 'Cabinet',
             ),
             BottomNavigationBarItem(
-              icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.person_rounded)),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.person_rounded),
+              ),
               label: 'Profile',
             ),
           ],

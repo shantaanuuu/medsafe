@@ -8,6 +8,7 @@ import '../../../services/api_service.dart';
 import '../../../models/medicine_model.dart';
 import '../../../add_medicine_ocr.dart';
 import '../../../screens/camera_screen.dart';
+import '../../../prescription_scan_screen.dart';
 
 class ManualSearchScreen extends ConsumerStatefulWidget {
   const ManualSearchScreen({super.key});
@@ -86,9 +87,7 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
   Future<void> _openCameraScan() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CameraScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const CameraScreen()),
     );
 
     if (result != null && result is MedicineModel && mounted) {
@@ -124,6 +123,22 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
         children: [
           DisclaimerBanner(access: access),
           Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PrescriptionScanScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.description_outlined),
+              label: const Text('Scan doctor prescription'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
@@ -145,7 +160,10 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                 fillColor: Colors.white,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                  borderSide: BorderSide(
+                    color: access.textColor.withOpacity(0.08),
+                    width: 1.5,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -157,13 +175,11 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF2563EB),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                   )
                 : _results.isEmpty && _hasSearched
-                    ? _buildZeroResultsView(access)
-                    : _buildResultsList(access),
+                ? _buildZeroResultsView(access)
+                : _buildResultsList(access),
           ),
         ],
       ),
@@ -194,7 +210,10 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _openCameraScan,
-            icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white),
+            icon: const Icon(
+              Icons.qr_code_scanner_rounded,
+              color: Colors.white,
+            ),
             label: Text(
               'Scan Package',
               style: access.getTextStyle(
@@ -208,7 +227,9 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
               foregroundColor: Colors.white,
               minimumSize: Size(double.infinity, access.minTapTargetSize),
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
         ],
@@ -227,21 +248,33 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+            side: BorderSide(
+              color: access.textColor.withOpacity(0.08),
+              width: 1.5,
+            ),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             leading: CircleAvatar(
               backgroundColor: access.primaryTeal.withOpacity(0.1),
               child: Icon(Icons.medication_rounded, color: access.primaryTeal),
             ),
             title: Text(
               med.brandName,
-              style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+              style: access.getTextStyle(
+                baseSize: 16.0,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             subtitle: Text(
               med.genericName,
-              style: access.getTextStyle(baseSize: 14.0, color: access.textColor.withOpacity(0.6)),
+              style: access.getTextStyle(
+                baseSize: 14.0,
+                color: access.textColor.withOpacity(0.6),
+              ),
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () {
@@ -259,7 +292,8 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => AddMedicineOcrScreen(prefilledMedicine: prefilledModel),
+                  builder: (context) =>
+                      AddMedicineOcrScreen(prefilledMedicine: prefilledModel),
                 ),
               );
             },

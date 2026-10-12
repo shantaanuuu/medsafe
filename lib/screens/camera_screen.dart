@@ -18,11 +18,14 @@ class CameraScreen extends StatefulWidget {
     super.key,
     this.backendBaseUrl = const String.fromEnvironment(
       'BACKEND_BASE_URL',
-      defaultValue: 'http://10.0.2.2:5000', // Default to emulator loopback for Android
+      defaultValue:
+          'http://10.0.2.2:5000', // Default to emulator loopback for Android
     ),
+    this.prescriptionMode = false,
   });
 
   final String backendBaseUrl;
+  final bool prescriptionMode;
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -60,7 +63,8 @@ class _CameraScreenState extends State<CameraScreen> {
     });
     try {
       debugPrint('CAMERA_SCREEN: permission request start');
-      final PermissionStatus permissionStatus = await Permission.camera.request();
+      final PermissionStatus permissionStatus = await Permission.camera
+          .request();
       debugPrint('CAMERA_SCREEN: permission request done = $permissionStatus');
       if (!permissionStatus.isGranted) {
         if (!mounted) {
@@ -70,7 +74,9 @@ class _CameraScreenState extends State<CameraScreen> {
         setState(() {
           _permissionMessage = permissionStatus.isPermanentlyDenied
               ? 'Camera permission is permanently denied. Please enable it in Settings.'
-              : 'Camera permission is required to scan medicine labels.';
+              : widget.prescriptionMode
+                  ? 'Camera permission is required to scan prescriptions.'
+                  : 'Camera permission is required to scan medicine labels.';
         });
         return;
       }
@@ -147,7 +153,9 @@ class _CameraScreenState extends State<CameraScreen> {
     try {
       debugPrint('CAMERA_SCREEN: STEP 1 - capturePhoto start');
       final XFile capturedImage = await _cameraService.capturePhoto();
-      debugPrint('CAMERA_SCREEN: STEP 1 - capturePhoto done path=${capturedImage.path}');
+      debugPrint(
+        'CAMERA_SCREEN: STEP 1 - capturePhoto done path=${capturedImage.path}',
+      );
 
       final File imageFile = File(capturedImage.path);
 
@@ -159,20 +167,25 @@ class _CameraScreenState extends State<CameraScreen> {
         debugPrint('Compressing Captured Image in Background...');
         final bytes = await imageFile.readAsBytes();
         final compressedBytes = await compute(_compressImageBytes, bytes);
-        
+
         final tempDir = Directory.systemTemp;
-        final tempFile = File('${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final tempFile = File(
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
         await tempFile.writeAsBytes(compressedBytes);
         uploadFile = tempFile;
         wasCompressed = true;
-        debugPrint('Compression Done. Original: ${bytes.length} bytes, Compressed: ${compressedBytes.length} bytes');
+        debugPrint(
+          'Compression Done. Original: ${bytes.length} bytes, Compressed: ${compressedBytes.length} bytes',
+        );
       } catch (e) {
         debugPrint('Compression failed, falling back to original: $e');
       }
 
       debugPrint('Sending Image To Backend');
-      final MedicineModel medicine =
-          await _apiService.scanImage(uploadFile);
+      final result = widget.prescriptionMode
+          ? await _apiService.scanPrescription(uploadFile)
+          : await _apiService.scanImage(uploadFile);
 
       // Clean up the temporary compressed file on device
       if (wasCompressed) {
@@ -189,7 +202,7 @@ class _CameraScreenState extends State<CameraScreen> {
       }
 
       debugPrint('CAMERA_SCREEN: Navigator.pop start');
-      Navigator.of(context).pop<MedicineModel>(medicine);
+      Navigator.of(context).pop(result);
       debugPrint('CAMERA_SCREEN: Navigator.pop done');
     } catch (error) {
       debugPrint('CAMERA_SCREEN: _captureAndScan ERROR: $error');
@@ -261,22 +274,14 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
             ),
             if (hasCamera)
-              Positioned.fill(
-                child: CameraPreview(controller!),
-              )
+              Positioned.fill(child: CameraPreview(controller!))
             else
-              const Positioned.fill(
-                child: SizedBox.shrink(),
-              ),
+              const Positioned.fill(child: SizedBox.shrink()),
             Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(0.25),
-              ),
+              child: Container(color: Colors.black.withOpacity(0.25)),
             ),
             Positioned.fill(
-              child: CustomPaint(
-                painter: _ScannerOverlayPainter(),
-              ),
+              child: CustomPaint(painter: _ScannerOverlayPainter()),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -301,7 +306,8 @@ class _CameraScreenState extends State<CameraScreen> {
                           ),
                         ),
                         child: IconButton(
-                          onPressed: (_isInitializing ||
+                          onPressed:
+                              (_isInitializing ||
                                   _isProcessing ||
                                   !_cameraService.isFlashAvailable)
                               ? null
@@ -323,28 +329,30 @@ class _CameraScreenState extends State<CameraScreen> {
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.38),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.10),
-                      ),
+                      border: Border.all(color: Colors.white.withOpacity(0.10)),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Text(
-                          'Align the medicine label inside the frame',
+                          widget.prescriptionMode
+                              ? 'Keep the full prescription inside the frame'
+                              : 'Align the medicine label inside the frame',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Capture a clear photo to extract OCR text and send it to the MedSafe backend.',
+                          widget.prescriptionMode
+                              ? 'Use good light and capture all medicine lines clearly.'
+                              : 'Capture a clear photo to extract medicine details.',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.white70,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.white70),
                         ),
                         if (_errorMessage != null) ...<Widget>[
                           const SizedBox(height: 12),
@@ -390,14 +398,17 @@ class _CameraScreenState extends State<CameraScreen> {
                               ),
                               boxShadow: <BoxShadow>[
                                 BoxShadow(
-                                  color: const Color(0xFF0EA5E9).withOpacity(0.35),
+                                  color: const Color(
+                                    0xFF0EA5E9,
+                                  ).withOpacity(0.35),
                                   blurRadius: 18,
                                   offset: const Offset(0, 8),
                                 ),
                               ],
                             ),
                             child: IconButton(
-                              onPressed: (_isInitializing ||
+                              onPressed:
+                                  (_isInitializing ||
                                       _isProcessing ||
                                       !hasCamera)
                                   ? null
@@ -410,8 +421,8 @@ class _CameraScreenState extends State<CameraScreen> {
                                         strokeWidth: 2.6,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
+                                              Colors.white,
+                                            ),
                                       ),
                                     )
                                   : const Icon(
@@ -432,9 +443,7 @@ class _CameraScreenState extends State<CameraScreen> {
               Container(
                 color: Colors.black.withOpacity(0.45),
                 child: const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
+                  child: CircularProgressIndicator(color: Colors.white),
                 ),
               ),
           ],
@@ -463,11 +472,12 @@ class _ScannerOverlayPainter extends CustomPainter {
 
     final Path backgroundPath = Path()..addRect(Offset.zero & size);
     final Path holePath = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(frameRect, const Radius.circular(24)),
-      );
-    final Path overlayPath =
-        Path.combine(PathOperation.difference, backgroundPath, holePath);
+      ..addRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(24)));
+    final Path overlayPath = Path.combine(
+      PathOperation.difference,
+      backgroundPath,
+      holePath,
+    );
     canvas.drawPath(overlayPath, dimPaint);
 
     canvas.drawRRect(
@@ -517,12 +527,12 @@ List<int> _compressImageBytes(List<int> bytes) {
   try {
     final image = img.decodeImage(Uint8List.fromList(bytes));
     if (image == null) return bytes;
-    
+
     img.Image resized = image;
     if (image.width > 1200) {
       resized = img.copyResize(image, width: 1200);
     }
-    
+
     return img.encodeJpg(resized, quality: 80);
   } catch (e) {
     debugPrint('Background compression exception: $e');

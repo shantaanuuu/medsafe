@@ -6,3 +6,4 @@ Pillow
 mysql-connector-python
 python-dotenv
 google-generativeai
+pypdf

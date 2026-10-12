@@ -47,6 +47,8 @@ app.*.map.json
 # Large data files
 medicine_dataset.csv
 updated_indian_medicine_data.csv
+ml/data/
+med2/Medsafe/backend/models/*.joblib
 
 # Firebase / Secret Files / Local Environment
 **/google-services.json

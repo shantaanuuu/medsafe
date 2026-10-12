@@ -20,7 +20,8 @@ class AddMedicineOcrScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AddMedicineOcrScreen> createState() => _AddMedicineOcrScreenState();
+  ConsumerState<AddMedicineOcrScreen> createState() =>
+      _AddMedicineOcrScreenState();
 }
 
 class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
@@ -85,22 +86,26 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       _dosageController.text = med.strength ?? 'Tablet';
       _batchController.text = med.batchNumber ?? '';
       _substitutesController.text = med.substitutes ?? '';
-      
+
       // Parse expiry date format (ISO format, DD-MM-YYYY, MM/YY or MM/YYYY)
       String formattedExpiry = '';
       if (med.expiryDate != null) {
         final parsed = DateTime.tryParse(med.expiryDate!);
         if (parsed != null) {
-          formattedExpiry = '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+          formattedExpiry =
+              '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
         } else {
-          final cleaned = med.expiryDate!.replaceAll(RegExp(r'[^0-9/-]'), '').trim();
+          final cleaned = med.expiryDate!
+              .replaceAll(RegExp(r'[^0-9/-]'), '')
+              .trim();
           final parts = cleaned.split(RegExp(r'[/-]'));
           if (parts.length == 2) {
             final month = int.tryParse(parts[0]);
             final year = int.tryParse(parts[1]);
             if (month != null && year != null) {
               final fullYear = year < 100 ? 2000 + year : year;
-              formattedExpiry = '$fullYear-${month.toString().padLeft(2, '0')}-01';
+              formattedExpiry =
+                  '$fullYear-${month.toString().padLeft(2, '0')}-01';
             }
           } else if (parts.length == 3) {
             final p0 = int.tryParse(parts[0]);
@@ -108,20 +113,23 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
             final p2 = int.tryParse(parts[2]);
             if (p0 != null && p1 != null && p2 != null) {
               if (p0 > 1000) {
-                formattedExpiry = '$p0-${p1.toString().padLeft(2, '0')}-${p2.toString().padLeft(2, '0')}';
+                formattedExpiry =
+                    '$p0-${p1.toString().padLeft(2, '0')}-${p2.toString().padLeft(2, '0')}';
               } else if (p2 > 1000) {
-                formattedExpiry = '$p2-${p1.toString().padLeft(2, '0')}-${p0.toString().padLeft(2, '0')}';
+                formattedExpiry =
+                    '$p2-${p1.toString().padLeft(2, '0')}-${p0.toString().padLeft(2, '0')}';
               }
             }
           }
         }
       }
-      
+
       if (formattedExpiry.isEmpty) {
         final futureDate = DateTime.now().add(const Duration(days: 90));
-        formattedExpiry = '${futureDate.year}-${futureDate.month.toString().padLeft(2, '0')}-${futureDate.day.toString().padLeft(2, '0')}';
+        formattedExpiry =
+            '${futureDate.year}-${futureDate.month.toString().padLeft(2, '0')}-${futureDate.day.toString().padLeft(2, '0')}';
       }
-      
+
       _expiryController.text = formattedExpiry;
       _nicknameController.text = med.nickname ?? '';
       if (med.quantity != null) {
@@ -145,7 +153,8 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
         _substitutesController.text = '';
         // Mock expiry date format: YYYY-MM-DD
         final futureDate = DateTime.now().add(const Duration(days: 45));
-        _expiryController.text = '${futureDate.year}-${futureDate.month.toString().padLeft(2, '0')}-${futureDate.day.toString().padLeft(2, '0')}';
+        _expiryController.text =
+            '${futureDate.year}-${futureDate.month.toString().padLeft(2, '0')}-${futureDate.day.toString().padLeft(2, '0')}';
         _isProcessingImage = false;
       });
     });
@@ -179,26 +188,36 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
 
     final double? quantity = double.tryParse(_quantityController.text.trim());
     final newMed = Medicine(
-      id: widget.prefilledMedicine?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          widget.prefilledMedicine?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
       genericName: _genericController.text.trim(),
-      batchNumber: _batchController.text.trim().isEmpty ? null : _batchController.text.trim(),
+      batchNumber: _batchController.text.trim().isEmpty
+          ? null
+          : _batchController.text.trim(),
       expiryDate: expiryDate,
       addedDate: DateTime.now(),
       dosageForm: _dosageController.text.trim(),
       verifiedSource: widget.prefilledMedicine?.verifiedSource != null
           ? VerifiedSource.values[widget.prefilledMedicine!.verifiedSource!]
           : VerifiedSource.ocr,
-      price: widget.prefilledMedicine?.mrp != null ? double.tryParse(widget.prefilledMedicine!.mrp!) : null,
+      price: widget.prefilledMedicine?.mrp != null
+          ? double.tryParse(widget.prefilledMedicine!.mrp!)
+          : null,
       manufacturer: widget.prefilledMedicine?.manufacturer,
       sideEffects: widget.prefilledMedicine?.sideEffects,
       drugInteractions: widget.prefilledMedicine?.drugInteractions,
       medicineDesc: widget.prefilledMedicine?.medicineDesc,
-      substitutes: _substitutesController.text.trim().isEmpty ? null : _substitutesController.text.trim(),
+      substitutes: _substitutesController.text.trim().isEmpty
+          ? null
+          : _substitutesController.text.trim(),
       chemicalClass: widget.prefilledMedicine?.chemicalClass,
       therapeuticClass: widget.prefilledMedicine?.therapeuticClass,
       habitForming: widget.prefilledMedicine?.habitForming,
-      nickname: _nicknameController.text.trim().isEmpty ? null : _nicknameController.text.trim(),
+      nickname: _nicknameController.text.trim().isEmpty
+          ? null
+          : _nicknameController.text.trim(),
       quantity: quantity,
       dosageSchedule: '${_doseTimes.length} times/day',
     );
@@ -211,7 +230,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
     if (user != null) {
       final activeProfile = ref.read(activeProfileProvider);
       final caregiverProfile = ref.read(onboardingProfileProvider).value;
-      final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+      final String? dependentId =
+          (activeProfile != null &&
+              caregiverProfile != null &&
+              activeProfile.id != caregiverProfile.id)
           ? activeProfile.id
           : null;
 
@@ -242,7 +264,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
           backgroundColor: const Color(0xFF2563EB),
         ),
       );
-      Navigator.pop(context); // Go back to cabinet
+      Navigator.pop(
+        context,
+        true,
+      ); // Return success to prescription review when used there
     }
   }
 
@@ -267,7 +292,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
         actions: [
           // Elderly toggle in header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 4.0,
+            ),
             child: ElderlyModeToggle(
               access: access,
               value: isElderlyMode,
@@ -282,7 +310,7 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
         children: [
           // Shared Disclaimer Banner
           DisclaimerBanner(access: access),
-          
+
           Expanded(
             child: _isProcessingImage
                 ? _buildLoadingScreen(access)
@@ -325,7 +353,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                             labelText: 'Medicine Name',
                             icon: Icons.medication_rounded,
                             mockTranscript: 'Metformin 500mg',
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Enter medicine name' : null,
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty
+                                ? 'Enter medicine name'
+                                : null,
                           ),
                           const SizedBox(height: 16),
 
@@ -353,7 +384,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                             labelText: 'Dosage Form',
                             icon: Icons.layers_outlined,
                             mockTranscript: 'Tablet',
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Enter dosage form' : null,
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty
+                                ? 'Enter dosage form'
+                                : null,
                           ),
                           const SizedBox(height: 16),
 
@@ -366,13 +400,16 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                           // Expiry Date Field
+                          // Expiry Date Field
                           TextFormField(
                             controller: _expiryController,
                             readOnly: true,
                             onTap: () async {
-                              DateTime parsedInitial = DateTime.now().add(const Duration(days: 90));
-                              final existingText = _expiryController.text.trim();
+                              DateTime parsedInitial = DateTime.now().add(
+                                const Duration(days: 90),
+                              );
+                              final existingText = _expiryController.text
+                                  .trim();
                               if (existingText.isNotEmpty) {
                                 final parsed = DateTime.tryParse(existingText);
                                 if (parsed != null) {
@@ -382,12 +419,17 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               final picked = await showDatePicker(
                                 context: context,
                                 initialDate: parsedInitial,
-                                firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                                lastDate: DateTime.now().add(const Duration(days: 3650)),
+                                firstDate: DateTime.now().subtract(
+                                  const Duration(days: 365),
+                                ),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 3650),
+                                ),
                               );
                               if (picked != null) {
                                 setState(() {
-                                  _expiryController.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                  _expiryController.text =
+                                      "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
                                 });
                               }
                             },
@@ -405,18 +447,28 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               ),
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 20,
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                                borderSide: BorderSide(
+                                  color: access.textColor.withOpacity(0.08),
+                                  width: 1.5,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
+                                borderSide: BorderSide(
+                                  color: access.primaryTeal,
+                                  width: 2.0,
+                                ),
                               ),
                             ),
                             validator: (val) {
-                              if (val == null || val.trim().isEmpty) return 'Enter expiry date';
+                              if (val == null || val.trim().isEmpty)
+                                return 'Enter expiry date';
                               try {
                                 DateTime.parse(val.trim());
                               } catch (_) {
@@ -453,14 +505,23 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               ),
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 20,
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                                borderSide: BorderSide(
+                                  color: access.textColor.withOpacity(0.08),
+                                  width: 1.5,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
+                                borderSide: BorderSide(
+                                  color: access.primaryTeal,
+                                  width: 2.0,
+                                ),
                               ),
                             ),
                           ),
@@ -503,28 +564,43 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               ),
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 20,
+                              ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                                borderSide: BorderSide(
+                                  color: access.textColor.withOpacity(0.08),
+                                  width: 1.5,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
+                                borderSide: BorderSide(
+                                  color: access.primaryTeal,
+                                  width: 2.0,
+                                ),
                               ),
                             ),
-                            items: [
-                              'Once Daily',
-                              'Twice Daily',
-                              'Three Times Daily',
-                              'Four Times Daily',
-                              'Custom',
-                            ].map((f) {
-                              return DropdownMenuItem<String>(
-                                value: f,
-                                child: Text(f, style: access.getTextStyle(baseSize: 15.0)),
-                              );
-                            }).toList(),
+                            items:
+                                [
+                                  'Once Daily',
+                                  'Twice Daily',
+                                  'Three Times Daily',
+                                  'Four Times Daily',
+                                  'Custom',
+                                ].map((f) {
+                                  return DropdownMenuItem<String>(
+                                    value: f,
+                                    child: Text(
+                                      f,
+                                      style: access.getTextStyle(
+                                        baseSize: 15.0,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                             onChanged: (val) {
                               if (val != null) {
                                 _updateDoseTimesForFrequency(val);
@@ -540,12 +616,17 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               children: [
                                 Text(
                                   'Number of doses per day:',
-                                  style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                                  style: access.getTextStyle(
+                                    baseSize: 15.0,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                                 Row(
                                   children: [
                                     IconButton(
-                                      icon: const Icon(Icons.remove_circle_outline),
+                                      icon: const Icon(
+                                        Icons.remove_circle_outline,
+                                      ),
                                       onPressed: _customTimesCount > 1
                                           ? () {
                                               setState(() {
@@ -557,15 +638,25 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                                     ),
                                     Text(
                                       '$_customTimesCount',
-                                      style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                                      style: access.getTextStyle(
+                                        baseSize: 16.0,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.add_circle_outline),
+                                      icon: const Icon(
+                                        Icons.add_circle_outline,
+                                      ),
                                       onPressed: _customTimesCount < 12
                                           ? () {
                                               setState(() {
                                                 _customTimesCount++;
-                                                _doseTimes.add(const TimeOfDay(hour: 9, minute: 0));
+                                                _doseTimes.add(
+                                                  const TimeOfDay(
+                                                    hour: 9,
+                                                    minute: 0,
+                                                  ),
+                                                );
                                               });
                                             }
                                           : null,
@@ -580,10 +671,15 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                           // Dose time list pickers
                           ...List.generate(_doseTimes.length, (index) {
                             final time = _doseTimes[index];
-                            final hr = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+                            final hr = time.hourOfPeriod == 0
+                                ? 12
+                                : time.hourOfPeriod;
                             final min = time.minute.toString().padLeft(2, '0');
-                            final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-                            final formattedTime = '${hr.toString().padLeft(2, '0')}:$min $period';
+                            final period = time.period == DayPeriod.am
+                                ? 'AM'
+                                : 'PM';
+                            final formattedTime =
+                                '${hr.toString().padLeft(2, '0')}:$min $period';
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: InkWell(
@@ -599,22 +695,35 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                                   }
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: access.textColor.withOpacity(0.08), width: 1.5),
+                                    border: Border.all(
+                                      color: access.textColor.withOpacity(0.08),
+                                      width: 1.5,
+                                    ),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
-                                          Icon(Icons.access_time_rounded, color: access.primaryTeal),
+                                          Icon(
+                                            Icons.access_time_rounded,
+                                            color: access.primaryTeal,
+                                          ),
                                           const SizedBox(width: 12),
                                           Text(
                                             'Dose ${index + 1}',
-                                            style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                                            style: access.getTextStyle(
+                                              baseSize: 15.0,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -622,10 +731,19 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                                         children: [
                                           Text(
                                             formattedTime,
-                                            style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold, color: access.primaryTeal),
+                                            style: access.getTextStyle(
+                                              baseSize: 15.0,
+                                              fontWeight: FontWeight.bold,
+                                              color: access.primaryTeal,
+                                            ),
                                           ),
                                           const SizedBox(width: 4),
-                                          Icon(Icons.arrow_drop_down, color: access.textColor.withOpacity(0.5)),
+                                          Icon(
+                                            Icons.arrow_drop_down,
+                                            color: access.textColor.withOpacity(
+                                              0.5,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -639,7 +757,11 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                           // Action Buttons
                           ElevatedButton.icon(
                             onPressed: _submit,
-                            icon: Icon(Icons.check_rounded, size: access.scaleText(20.0), color: Colors.white),
+                            icon: Icon(
+                              Icons.check_rounded,
+                              size: access.scaleText(20.0),
+                              color: Colors.white,
+                            ),
                             label: Text(
                               'Save Medicine to Cabinet',
                               style: access.getTextStyle(
@@ -653,18 +775,24 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
                               foregroundColor: Colors.white,
                               minimumSize: Size(0, access.minTapTargetSize),
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
+
                           OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: access.textColor.withOpacity(0.12)),
+                              side: BorderSide(
+                                color: access.textColor.withOpacity(0.12),
+                              ),
                               minimumSize: Size(0, access.minTapTargetSize),
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
                             child: Text(
                               'Cancel',
@@ -723,7 +851,10 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
       decoration: BoxDecoration(
         color: access.primaryTeal.withOpacity(0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: access.primaryTeal.withOpacity(0.12), width: 1.5),
+        border: Border.all(
+          color: access.primaryTeal.withOpacity(0.12),
+          width: 1.5,
+        ),
       ),
       child: Row(
         children: [

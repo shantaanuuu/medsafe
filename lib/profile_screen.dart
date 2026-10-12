@@ -5,6 +5,11 @@ import 'accessibility_config.dart';
 import 'shared_states.dart';
 import 'main.dart';
 import 'how_to_use_screen.dart';
+import 'allergy_screen.dart';
+import 'medical_information_screen.dart';
+import 'near_me_screen.dart';
+import 'report_analysis_screen.dart';
+
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -29,6 +34,7 @@ class ProfileScreen extends ConsumerWidget {
 
     if (confirm == true) {
       try {
+        await clearLocalReports();
         await FirebaseAuth.instance.signOut();
       } catch (e) {
         if (!context.mounted) return;
@@ -43,9 +49,9 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Coming soon')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Coming soon')));
   }
 
   @override
@@ -57,15 +63,19 @@ class ProfileScreen extends ConsumerWidget {
 
     final String email = user?.email ?? 'No email';
     final String phone = user?.phoneNumber ?? '';
-    
+
     // Attempt to get name from UserHealthProfile, then Firebase, then fallback
     String name = 'User';
     profileAsync.whenData((profile) {
-      if (profile != null && profile.nickname != null && profile.nickname!.isNotEmpty) {
+      if (profile != null &&
+          profile.nickname != null &&
+          profile.nickname!.isNotEmpty) {
         name = profile.nickname!;
       }
     });
-    if (name == 'User' && user?.displayName != null && user!.displayName!.isNotEmpty) {
+    if (name == 'User' &&
+        user?.displayName != null &&
+        user!.displayName!.isNotEmpty) {
       name = user.displayName!;
     }
 
@@ -95,20 +105,21 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     ),
                     SizedBox(height: access.scaleSpacing(16.0)),
-                    Text(
-                      name,
-                      style: access.headerText,
-                    ),
+                    Text(name, style: access.headerText),
                     SizedBox(height: access.scaleSpacing(4.0)),
                     Text(
                       email,
-                      style: access.bodyText.copyWith(color: access.secondaryTextColor),
+                      style: access.bodyText.copyWith(
+                        color: access.secondaryTextColor,
+                      ),
                     ),
                     if (phone.isNotEmpty) ...[
                       SizedBox(height: access.scaleSpacing(4.0)),
                       Text(
                         phone,
-                        style: access.bodyText.copyWith(color: access.secondaryTextColor),
+                        style: access.bodyText.copyWith(
+                          color: access.secondaryTextColor,
+                        ),
                       ),
                     ],
                   ],
@@ -136,7 +147,24 @@ class ProfileScreen extends ConsumerWidget {
                       access: access,
                       icon: Icons.medical_services_outlined,
                       title: 'Medical Information',
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MedicalInformationScreen(),
+                        ),
+                      ),
+                    ),
+                    _buildDivider(access),
+                    _buildListTile(
+                      access: access,
+                      icon: Icons.health_and_safety_outlined,
+                      title: 'Allergies & Reactions',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AllergyCenterScreen(),
+                        ),
+                      ),
                     ),
                     _buildDivider(access),
                     _buildListTile(
@@ -147,7 +175,10 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     _buildDivider(access),
                     ListTile(
-                      leading: Icon(Icons.accessibility_new, color: access.primaryBlue),
+                      leading: Icon(
+                        Icons.accessibility_new,
+                        color: access.primaryBlue,
+                      ),
                       title: Text('Elderly Mode', style: access.bodyText),
                       trailing: Switch(
                         value: isElderly,
@@ -167,9 +198,12 @@ class ProfileScreen extends ConsumerWidget {
                     _buildDivider(access),
                     _buildListTile(
                       access: access,
-                      icon: Icons.lock_outline,
-                      title: 'Privacy Settings',
-                      onTap: () => _showComingSoon(context),
+                      icon: Icons.near_me_outlined,
+                      title: 'Near me',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NearMeScreen()),
+                      ),
                     ),
                     _buildDivider(access),
                     _buildListTile(
@@ -219,10 +253,14 @@ class ProfileScreen extends ConsumerWidget {
                   icon: const Icon(Icons.logout, color: Color(0xFFDC2626)),
                   label: Text(
                     'Logout',
-                    style: access.labelText.copyWith(color: const Color(0xFFDC2626)),
+                    style: access.labelText.copyWith(
+                      color: const Color(0xFFDC2626),
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFEE2E2), // Very light red/pink
+                    backgroundColor: const Color(
+                      0xFFFEE2E2,
+                    ), // Very light red/pink
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -233,10 +271,7 @@ class ProfileScreen extends ConsumerWidget {
               SizedBox(height: access.scaleSpacing(32.0)),
 
               // FOOTER
-              Text(
-                'MedSafe v1.0.0 · AI-Powered',
-                style: access.captionText,
-              ),
+              Text('MedSafe v1.0.0 · AI-Powered', style: access.captionText),
               SizedBox(height: access.scaleSpacing(16.0)),
             ],
           ),
@@ -260,6 +295,11 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _buildDivider(AccessibilityConfig access) {
-    return Divider(height: 1, color: access.borderColor, indent: 16, endIndent: 16);
+    return Divider(
+      height: 1,
+      color: access.borderColor,
+      indent: 16,
+      endIndent: 16,
+    );
   }
 }

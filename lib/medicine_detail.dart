@@ -24,17 +24,21 @@ class MedicineDetailScreen extends ConsumerWidget {
     final otherMeds = cabinet.where((m) => m.id != medicine.id).toList();
 
     for (var other in otherMeds) {
-      if (medicine.name.contains('Paracetamol') && other.name.contains('Metformin')) {
+      if (medicine.name.contains('Paracetamol') &&
+          other.name.contains('Metformin')) {
         interactions.add({
           'otherMed': other.name,
           'severity': 'monitor',
-          'description': 'Concomitant use may alter glycemic control. Monitor blood glucose closely.',
+          'description':
+              'Concomitant use may alter glycemic control. Monitor blood glucose closely.',
         });
-      } else if (medicine.name.contains('Metformin') && other.name.contains('Paracetamol')) {
+      } else if (medicine.name.contains('Metformin') &&
+          other.name.contains('Paracetamol')) {
         interactions.add({
           'otherMed': other.name,
           'severity': 'monitor',
-          'description': 'Concomitant use may alter glycemic control. Monitor blood glucose closely.',
+          'description':
+              'Concomitant use may alter glycemic control. Monitor blood glucose closely.',
         });
       }
     }
@@ -45,8 +49,9 @@ class MedicineDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isElderlyMode = ref.watch(elderlyModeProvider);
     final cabinet = ref.watch(cabinetProvider);
+    final profile = ref.watch(onboardingProfileProvider).value;
     final access = AccessibilityConfig(isElderlyMode: isElderlyMode);
-    
+
     final interactions = _getMockInteractions(cabinet);
 
     // Dynamic Source Icon and Label
@@ -79,7 +84,11 @@ class MedicineDetailScreen extends ConsumerWidget {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(currentScreenProvider.notifier).setScreen('Medicine Detail Screen for ${medicine.name} (${medicine.genericName})');
+      ref
+          .read(currentScreenProvider.notifier)
+          .setScreen(
+            'Medicine Detail Screen for ${medicine.name} (${medicine.genericName})',
+          );
     });
 
     return Scaffold(
@@ -99,7 +108,10 @@ class MedicineDetailScreen extends ConsumerWidget {
         actions: [
           // Elderly toggle in header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: 4.0,
+            ),
             child: ElderlyModeToggle(
               access: access,
               value: isElderlyMode,
@@ -125,12 +137,23 @@ class MedicineDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 1. Medicine Header Information Card
-                  _buildHeaderCard(context, ref, access, sourceIcon, sourceText),
+                  _buildHeaderCard(
+                    context,
+                    ref,
+                    access,
+                    sourceIcon,
+                    sourceText,
+                  ),
                   const SizedBox(height: 24),
 
                   // Medication Schedule Card
                   _buildScheduleCard(context, ref, schedule, access),
                   const SizedBox(height: 24),
+
+                  if (profile != null && profile.allergies.isNotEmpty) ...[
+                    _buildAllergyCheck(ref, profile.allergies, access),
+                    const SizedBox(height: 24),
+                  ],
 
                   // 2. Drug Interaction Status
                   Text(
@@ -144,7 +167,9 @@ class MedicineDetailScreen extends ConsumerWidget {
                   if (interactions.isEmpty)
                     _buildNoInteractionsCard(access)
                   else
-                    ...interactions.map((inter) => _buildInteractionTile(inter, access)),
+                    ...interactions.map(
+                      (inter) => _buildInteractionTile(inter, access),
+                    ),
 
                   const SizedBox(height: 24),
 
@@ -166,11 +191,16 @@ class MedicineDetailScreen extends ConsumerWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => DosageCalculatorScreen(medicine: medicine),
+                          builder: (context) =>
+                              DosageCalculatorScreen(medicine: medicine),
                         ),
                       );
                     },
-                    icon: Icon(Icons.calculate_outlined, size: access.scaleText(20.0), color: Colors.white),
+                    icon: Icon(
+                      Icons.calculate_outlined,
+                      size: access.scaleText(20.0),
+                      color: Colors.white,
+                    ),
                     label: Text(
                       'Check Safe Dosage Range',
                       style: access.getTextStyle(
@@ -182,9 +212,14 @@ class MedicineDetailScreen extends ConsumerWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: access.primaryTeal,
                       foregroundColor: Colors.white,
-                      minimumSize: Size(double.infinity, access.minTapTargetSize),
+                      minimumSize: Size(
+                        double.infinity,
+                        access.minTapTargetSize,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -195,11 +230,16 @@ class MedicineDetailScreen extends ConsumerWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => SideEffectProfilerScreen(medicine: medicine),
+                          builder: (context) =>
+                              SideEffectProfilerScreen(medicine: medicine),
                         ),
                       );
                     },
-                    icon: Icon(Icons.analytics_outlined, size: access.scaleText(18.0), color: access.primaryTeal),
+                    icon: Icon(
+                      Icons.analytics_outlined,
+                      size: access.scaleText(18.0),
+                      color: access.primaryTeal,
+                    ),
                     label: Text(
                       'Side Effect Risk Profile (FAERS)',
                       style: access.getTextStyle(
@@ -210,27 +250,39 @@ class MedicineDetailScreen extends ConsumerWidget {
                     ),
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: access.primaryTeal, width: 1.5),
-                      minimumSize: Size(double.infinity, access.minTapTargetSize),
+                      minimumSize: Size(
+                        double.infinity,
+                        access.minTapTargetSize,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
 
                   // 4. Action triggers
                   OutlinedButton.icon(
                     onPressed: () {
-                      ref.read(cabinetProvider.notifier).removeMedicine(medicine.id);
+                      ref
+                          .read(cabinetProvider.notifier)
+                          .removeMedicine(medicine.id);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('${medicine.name} removed from cabinet.'),
+                          content: Text(
+                            '${medicine.name} removed from cabinet.',
+                          ),
                           backgroundColor: access.textColor,
                         ),
                       );
                       Navigator.pop(context);
                     },
-                    icon: Icon(Icons.delete_outline_rounded, color: access.alertRed),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: access.alertRed,
+                    ),
                     label: Text(
                       'Remove from Cabinet',
                       style: access.getTextStyle(
@@ -240,10 +292,18 @@ class MedicineDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: access.alertRed.withOpacity(0.5), width: 1.5),
-                      minimumSize: Size(double.infinity, access.minTapTargetSize),
+                      side: BorderSide(
+                        color: access.alertRed.withOpacity(0.5),
+                        width: 1.5,
+                      ),
+                      minimumSize: Size(
+                        double.infinity,
+                        access.minTapTargetSize,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
                 ],
@@ -252,6 +312,76 @@ class MedicineDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAllergyCheck(
+    WidgetRef ref,
+    List<String> allergies,
+    AccessibilityConfig access,
+  ) {
+    return FutureBuilder<AllergyMedicineCheck>(
+      future: ref
+          .read(apiServiceProvider)
+          .checkMedicineAllergy(
+            allergies: allergies,
+            medicineName: medicine.name,
+            genericName: medicine.genericName,
+          ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return const SizedBox.shrink();
+        if (!snapshot.hasData || !snapshot.data!.potentialConflict)
+          return const SizedBox.shrink();
+        final check = snapshot.data!;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF1F2),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFDA4AF)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFBE123C)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Potential allergy conflict',
+                      style: access.getTextStyle(
+                        baseSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF9F1239),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      check.message,
+                      style: access.getTextStyle(
+                        baseSize: 13,
+                        color: const Color(0xFF9F1239),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Do not take this medicine without advice from a doctor or pharmacist.',
+                      style: access.getTextStyle(
+                        baseSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF9F1239),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -301,7 +431,10 @@ class MedicineDetailScreen extends ConsumerWidget {
                   children: [
                     if (medicine.nickname != null) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: access.primaryTeal.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(6),
@@ -349,7 +482,11 @@ class MedicineDetailScreen extends ConsumerWidget {
             const SizedBox(height: 10),
           ],
           if (medicine.quantity != null) ...[
-            _buildMetaRow('Quantity', '${medicine.quantity!.toStringAsFixed(0)} units', access),
+            _buildMetaRow(
+              'Quantity',
+              '${medicine.quantity!.toStringAsFixed(0)} units',
+              access,
+            ),
             const SizedBox(height: 10),
           ],
           if (medicine.dosageSchedule != null) ...[
@@ -379,22 +516,34 @@ class MedicineDetailScreen extends ConsumerWidget {
                     style: access.getTextStyle(
                       baseSize: 14.0,
                       fontWeight: FontWeight.bold,
-                      color: medicine.expiryDate.difference(DateTime.now()).inDays <= 30
+                      color:
+                          medicine.expiryDate
+                                  .difference(DateTime.now())
+                                  .inDays <=
+                              30
                           ? access.alertRed
                           : access.textColor,
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: Icon(Icons.edit_rounded, size: 18, color: access.primaryTeal),
+                    icon: Icon(
+                      Icons.edit_rounded,
+                      size: 18,
+                      color: access.primaryTeal,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () async {
                       final picked = await showDatePicker(
                         context: context,
                         initialDate: medicine.expiryDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                        lastDate: DateTime.now().add(const Duration(days: 3650)),
+                        firstDate: DateTime.now().subtract(
+                          const Duration(days: 365),
+                        ),
+                        lastDate: DateTime.now().add(
+                          const Duration(days: 3650),
+                        ),
                       );
                       if (picked != null) {
                         _updateExpiryDate(context, ref, picked, access);
@@ -406,7 +555,7 @@ class MedicineDetailScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 10),
-          
+
           // Source Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -419,14 +568,21 @@ class MedicineDetailScreen extends ConsumerWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: access.primaryTeal.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(sourceIcon, size: access.scaleText(14.0), color: access.primaryTeal),
+                    Icon(
+                      sourceIcon,
+                      size: access.scaleText(14.0),
+                      color: access.primaryTeal,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       sourceText,
@@ -452,9 +608,9 @@ class MedicineDetailScreen extends ConsumerWidget {
     DateTime newDate,
     AccessibilityConfig access,
   ) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Updating expiry date...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Updating expiry date...')));
 
     try {
       final newMedicine = Medicine(
@@ -503,7 +659,12 @@ class MedicineDetailScreen extends ConsumerWidget {
     }
   }
 
-  Widget _buildMetaRow(String label, String value, AccessibilityConfig access, {bool isAlert = false}) {
+  Widget _buildMetaRow(
+    String label,
+    String value,
+    AccessibilityConfig access, {
+    bool isAlert = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -533,11 +694,18 @@ class MedicineDetailScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: access.successGreen.withOpacity(0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: access.successGreen.withOpacity(0.15), width: 1.5),
+        border: Border.all(
+          color: access.successGreen.withOpacity(0.15),
+          width: 1.5,
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline_rounded, color: access.successGreen, size: access.scaleText(20.0)),
+          Icon(
+            Icons.check_circle_outline_rounded,
+            color: access.successGreen,
+            size: access.scaleText(20.0),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -554,14 +722,20 @@ class MedicineDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInteractionTile(Map<String, String> inter, AccessibilityConfig access) {
+  Widget _buildInteractionTile(
+    Map<String, String> inter,
+    AccessibilityConfig access,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(access.scaleSpacing(16.0)),
       decoration: BoxDecoration(
         color: access.alertRed.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: access.alertRed.withOpacity(0.15), width: 1.5),
+        border: Border.all(
+          color: access.alertRed.withOpacity(0.15),
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,7 +767,8 @@ class MedicineDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildClinicalInfoCard(AccessibilityConfig access) {
-    final hasDbData = medicine.manufacturer != null || medicine.substitutes != null;
+    final hasDbData =
+        medicine.manufacturer != null || medicine.substitutes != null;
 
     return Container(
       width: double.infinity,
@@ -601,13 +776,18 @@ class MedicineDetailScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: access.textColor.withOpacity(0.08), width: 1.5),
+        border: Border.all(
+          color: access.textColor.withOpacity(0.08),
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            hasDbData ? 'Database Verification & Metadata' : 'Approved FDA Labeling Highlights',
+            hasDbData
+                ? 'Database Verification & Metadata'
+                : 'Approved FDA Labeling Highlights',
             style: access.getTextStyle(
               baseSize: 14.0,
               fontWeight: FontWeight.bold,
@@ -621,62 +801,92 @@ class MedicineDetailScreen extends ConsumerWidget {
               const SizedBox(height: 8),
             ],
             if (medicine.price != null && medicine.price! > 0) ...[
-              _buildMetaRow('MRP (Price)', '₹ ${medicine.price!.toStringAsFixed(2)}', access),
+              _buildMetaRow(
+                'MRP (Price)',
+                '₹ ${medicine.price!.toStringAsFixed(2)}',
+                access,
+              ),
               const SizedBox(height: 8),
             ],
-            if (medicine.therapeuticClass != null && medicine.therapeuticClass!.isNotEmpty) ...[
-              _buildMetaRow('Therapeutic Class', medicine.therapeuticClass!, access),
+            if (medicine.therapeuticClass != null &&
+                medicine.therapeuticClass!.isNotEmpty) ...[
+              _buildMetaRow(
+                'Therapeutic Class',
+                medicine.therapeuticClass!,
+                access,
+              ),
               const SizedBox(height: 8),
             ],
-            if (medicine.chemicalClass != null && medicine.chemicalClass!.isNotEmpty) ...[
+            if (medicine.chemicalClass != null &&
+                medicine.chemicalClass!.isNotEmpty) ...[
               _buildMetaRow('Chemical Class', medicine.chemicalClass!, access),
               const SizedBox(height: 8),
             ],
-            if (medicine.habitForming != null && medicine.habitForming!.isNotEmpty) ...[
+            if (medicine.habitForming != null &&
+                medicine.habitForming!.isNotEmpty) ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Habit Forming: ',
-                    style: access.getTextStyle(baseSize: 13.0, fontWeight: FontWeight.bold),
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     medicine.habitForming!,
                     style: access.getTextStyle(
                       baseSize: 13.0,
                       fontWeight: FontWeight.bold,
-                      color: medicine.habitForming!.toLowerCase() == 'yes' ? access.alertRed : access.successGreen,
+                      color: medicine.habitForming!.toLowerCase() == 'yes'
+                          ? access.alertRed
+                          : access.successGreen,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
             ],
-            if (medicine.medicineDesc != null && medicine.medicineDesc!.isNotEmpty) ...[
+            if (medicine.medicineDesc != null &&
+                medicine.medicineDesc!.isNotEmpty) ...[
               Text(
                 'Description:',
-                style: access.getTextStyle(baseSize: 13.0, fontWeight: FontWeight.bold),
+                style: access.getTextStyle(
+                  baseSize: 13.0,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 medicine.medicineDesc!,
-                style: access.getTextStyle(baseSize: 12.0, color: access.textColor.withOpacity(0.7)),
+                style: access.getTextStyle(
+                  baseSize: 12.0,
+                  color: access.textColor.withOpacity(0.7),
+                ),
               ),
               const SizedBox(height: 12),
             ],
-            if (medicine.substitutes != null && medicine.substitutes!.isNotEmpty) ...[
+            if (medicine.substitutes != null &&
+                medicine.substitutes!.isNotEmpty) ...[
               const Divider(height: 32),
               Row(
                 children: [
-                  Icon(Icons.swap_horiz_rounded, color: access.primaryTeal, size: access.scaleText(20.0)),
+                  Icon(
+                    Icons.swap_horiz_rounded,
+                    color: access.primaryTeal,
+                    size: access.scaleText(20.0),
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'ALTERNATIVE SUBSTITUTES',
-                    style: access.getTextStyle(
-                      baseSize: 13.0,
-                      fontWeight: FontWeight.w900,
-                      color: access.primaryTeal,
-                    ).copyWith(letterSpacing: 1.1),
+                    style: access
+                        .getTextStyle(
+                          baseSize: 13.0,
+                          fontWeight: FontWeight.w900,
+                          color: access.primaryTeal,
+                        )
+                        .copyWith(letterSpacing: 1.1),
                   ),
                 ],
               ),
@@ -689,52 +899,65 @@ class MedicineDetailScreen extends ConsumerWidget {
                     .map((sub) => sub.trim())
                     .where((sub) => sub.isNotEmpty)
                     .map((subName) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDFA),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: access.primaryTeal.withOpacity(0.15),
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.medication_outlined,
-                          size: access.scaleText(16.0),
-                          color: access.primaryTeal,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          subName,
-                          style: access.getTextStyle(
-                            baseSize: 13.0,
-                            fontWeight: FontWeight.bold,
-                            color: access.textColor.withOpacity(0.85),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDFA),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: access.primaryTeal.withOpacity(0.15),
+                            width: 1.5,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.medication_outlined,
+                              size: access.scaleText(16.0),
+                              color: access.primaryTeal,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              subName,
+                              style: access.getTextStyle(
+                                baseSize: 13.0,
+                                fontWeight: FontWeight.bold,
+                                color: access.textColor.withOpacity(0.85),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    })
+                    .toList(),
               ),
             ],
           ] else ...[
-            _buildBulletPoint('Do not exceed the maximum daily dosage ranges.', access),
+            _buildBulletPoint(
+              'Do not exceed the maximum daily dosage ranges.',
+              access,
+            ),
             const SizedBox(height: 8),
-            _buildBulletPoint('Consult with a medical professional if symptoms persist.', access),
+            _buildBulletPoint(
+              'Consult with a medical professional if symptoms persist.',
+              access,
+            ),
             const SizedBox(height: 8),
-            _buildBulletPoint('Store in a cool, dry place away from direct sunlight.', access),
+            _buildBulletPoint(
+              'Store in a cool, dry place away from direct sunlight.',
+              access,
+            ),
           ],
         ],
       ),
@@ -801,7 +1024,10 @@ class MedicineDetailScreen extends ConsumerWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.edit_calendar_rounded, color: access.primaryTeal),
+                icon: Icon(
+                  Icons.edit_calendar_rounded,
+                  color: access.primaryTeal,
+                ),
                 onPressed: () {
                   _showEditScheduleBottomSheet(context, ref, schedule, access);
                 },
@@ -823,11 +1049,16 @@ class MedicineDetailScreen extends ConsumerWidget {
                 _showEditScheduleBottomSheet(context, ref, null, access);
               },
               icon: const Icon(Icons.add_rounded, color: Colors.white),
-              label: const Text('Add Schedule', style: TextStyle(color: Colors.white)),
+              label: const Text(
+                'Add Schedule',
+                style: TextStyle(color: Colors.white),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: access.primaryTeal,
                 minimumSize: Size(double.infinity, access.minTapTargetSize),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ] else ...[
@@ -837,19 +1068,29 @@ class MedicineDetailScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   'Frequency:',
-                  style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.w500),
+                  style: access.getTextStyle(
+                    baseSize: 14.0,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${schedule.frequencyPerDay} times/day',
-                  style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold, color: access.primaryTeal),
+                  style: access.getTextStyle(
+                    baseSize: 14.0,
+                    fontWeight: FontWeight.bold,
+                    color: access.primaryTeal,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             Text(
               'Scheduled Dose Times:',
-              style: access.getTextStyle(baseSize: 14.0, fontWeight: FontWeight.bold),
+              style: access.getTextStyle(
+                baseSize: 14.0,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -857,14 +1098,25 @@ class MedicineDetailScreen extends ConsumerWidget {
               runSpacing: 8,
               children: schedule.scheduledTimes.map((timeStr) {
                 return Chip(
-                  avatar: Icon(Icons.access_time_rounded, size: 16, color: access.primaryTeal),
+                  avatar: Icon(
+                    Icons.access_time_rounded,
+                    size: 16,
+                    color: access.primaryTeal,
+                  ),
                   label: Text(
                     timeStr,
-                    style: access.getTextStyle(baseSize: 13.0, fontWeight: FontWeight.w600, color: access.textColor),
+                    style: access.getTextStyle(
+                      baseSize: 13.0,
+                      fontWeight: FontWeight.w600,
+                      color: access.textColor,
+                    ),
                   ),
                   backgroundColor: access.primaryTeal.withOpacity(0.06),
                   side: BorderSide(color: access.primaryTeal.withOpacity(0.12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                 );
               }).toList(),
             ),
@@ -890,11 +1142,16 @@ class MedicineDetailScreen extends ConsumerWidget {
       builder: (context) {
         var initialFreq = 'Once Daily';
         if (existing != null) {
-          if (existing.frequencyPerDay == 1) initialFreq = 'Once Daily';
-          else if (existing.frequencyPerDay == 2) initialFreq = 'Twice Daily';
-          else if (existing.frequencyPerDay == 3) initialFreq = 'Three Times Daily';
-          else if (existing.frequencyPerDay == 4) initialFreq = 'Four Times Daily';
-          else initialFreq = 'Custom';
+          if (existing.frequencyPerDay == 1)
+            initialFreq = 'Once Daily';
+          else if (existing.frequencyPerDay == 2)
+            initialFreq = 'Twice Daily';
+          else if (existing.frequencyPerDay == 3)
+            initialFreq = 'Three Times Daily';
+          else if (existing.frequencyPerDay == 4)
+            initialFreq = 'Four Times Daily';
+          else
+            initialFreq = 'Custom';
         }
 
         return _EditScheduleSheetBody(
@@ -942,7 +1199,9 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
     _frequency = widget.initialFreq;
     if (widget.existing != null) {
       _customTimesCount = widget.existing!.frequencyPerDay;
-      _doseTimes = widget.existing!.scheduledTimes.map((t) => _parseTimeOfDay(t)).toList();
+      _doseTimes = widget.existing!.scheduledTimes
+          .map((t) => _parseTimeOfDay(t))
+          .toList();
     } else {
       _customTimesCount = 1;
       _doseTimes = [const TimeOfDay(hour: 9, minute: 0)];
@@ -1003,7 +1262,10 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
 
     final activeProfile = widget.ref.read(activeProfileProvider);
     final caregiverProfile = widget.ref.read(onboardingProfileProvider).value;
-    final String? dependentId = (activeProfile != null && caregiverProfile != null && activeProfile.id != caregiverProfile.id)
+    final String? dependentId =
+        (activeProfile != null &&
+            caregiverProfile != null &&
+            activeProfile.id != caregiverProfile.id)
         ? activeProfile.id
         : null;
 
@@ -1015,7 +1277,9 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
     }).toList();
 
     final schedule = MedicationSchedule(
-      id: widget.existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          widget.existing?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       cabinetItemId: widget.medicine.id,
       dependentId: dependentId,
       userUid: user.uid,
@@ -1026,11 +1290,13 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
     try {
       await widget.ref.read(apiServiceProvider).saveSchedule(schedule);
       widget.ref.invalidate(schedulesProvider);
-      
+
       final updatedMedicine = widget.medicine.copyWith(
         dosageSchedule: '${_doseTimes.length} times/day',
       );
-      await widget.ref.read(cabinetProvider.notifier).addMedicine(updatedMedicine);
+      await widget.ref
+          .read(cabinetProvider.notifier)
+          .addMedicine(updatedMedicine);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1058,13 +1324,15 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     try {
-      await widget.ref.read(apiServiceProvider).deleteSchedule(user.uid, widget.existing!.id);
+      await widget.ref
+          .read(apiServiceProvider)
+          .deleteSchedule(user.uid, widget.existing!.id);
       widget.ref.invalidate(schedulesProvider);
-      
-      final updatedMedicine = widget.medicine.copyWith(
-        dosageSchedule: null,
-      );
-      await widget.ref.read(cabinetProvider.notifier).addMedicine(updatedMedicine);
+
+      final updatedMedicine = widget.medicine.copyWith(dosageSchedule: null);
+      await widget.ref
+          .read(cabinetProvider.notifier)
+          .addMedicine(updatedMedicine);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1106,7 +1374,10 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
             children: [
               Text(
                 widget.existing != null ? 'Edit Schedule' : 'Add Schedule',
-                style: access.getTextStyle(baseSize: 20.0, fontWeight: FontWeight.bold),
+                style: access.getTextStyle(
+                  baseSize: 20.0,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.close_rounded),
@@ -1134,28 +1405,35 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
               ),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 16,
+                horizontal: 20,
+              ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: access.textColor.withOpacity(0.08), width: 1.5),
+                borderSide: BorderSide(
+                  color: access.textColor.withOpacity(0.08),
+                  width: 1.5,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(color: access.primaryTeal, width: 2.0),
               ),
             ),
-            items: [
-              'Once Daily',
-              'Twice Daily',
-              'Three Times Daily',
-              'Four Times Daily',
-              'Custom',
-            ].map((f) {
-              return DropdownMenuItem<String>(
-                value: f,
-                child: Text(f, style: access.getTextStyle(baseSize: 15.0)),
-              );
-            }).toList(),
+            items:
+                [
+                  'Once Daily',
+                  'Twice Daily',
+                  'Three Times Daily',
+                  'Four Times Daily',
+                  'Custom',
+                ].map((f) {
+                  return DropdownMenuItem<String>(
+                    value: f,
+                    child: Text(f, style: access.getTextStyle(baseSize: 15.0)),
+                  );
+                }).toList(),
             onChanged: (val) {
               if (val != null) {
                 _updateDoseTimesForFrequency(val);
@@ -1171,7 +1449,10 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
               children: [
                 Text(
                   'Number of doses per day:',
-                  style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                  style: access.getTextStyle(
+                    baseSize: 15.0,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 Row(
                   children: [
@@ -1188,7 +1469,10 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                     ),
                     Text(
                       '$_customTimesCount',
-                      style: access.getTextStyle(baseSize: 16.0, fontWeight: FontWeight.bold),
+                      style: access.getTextStyle(
+                        baseSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline),
@@ -1196,7 +1480,9 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                           ? () {
                               setState(() {
                                 _customTimesCount++;
-                                _doseTimes.add(const TimeOfDay(hour: 9, minute: 0));
+                                _doseTimes.add(
+                                  const TimeOfDay(hour: 9, minute: 0),
+                                );
                               });
                             }
                           : null,
@@ -1210,7 +1496,9 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
 
           // Dose time pickers list
           ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.3),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.3,
+            ),
             child: ListView.builder(
               shrinkWrap: true,
               itemCount: _doseTimes.length,
@@ -1219,7 +1507,8 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                 final hr = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
                 final min = time.minute.toString().padLeft(2, '0');
                 final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-                final formattedTime = '${hr.toString().padLeft(2, '0')}:$min $period';
+                final formattedTime =
+                    '${hr.toString().padLeft(2, '0')}:$min $period';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
@@ -1235,22 +1524,34 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: access.textColor.withOpacity(0.08), width: 1.5),
+                        border: Border.all(
+                          color: access.textColor.withOpacity(0.08),
+                          width: 1.5,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.access_time_rounded, color: access.primaryTeal),
+                              Icon(
+                                Icons.access_time_rounded,
+                                color: access.primaryTeal,
+                              ),
                               const SizedBox(width: 12),
                               Text(
                                 'Dose ${index + 1}',
-                                style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.w500),
+                                style: access.getTextStyle(
+                                  baseSize: 15.0,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
@@ -1258,10 +1559,17 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                             children: [
                               Text(
                                 formattedTime,
-                                style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold, color: access.primaryTeal),
+                                style: access.getTextStyle(
+                                  baseSize: 15.0,
+                                  fontWeight: FontWeight.bold,
+                                  color: access.primaryTeal,
+                                ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(Icons.arrow_drop_down, color: access.textColor.withOpacity(0.5)),
+                              Icon(
+                                Icons.arrow_drop_down,
+                                color: access.textColor.withOpacity(0.5),
+                              ),
                             ],
                           ),
                         ],
@@ -1281,13 +1589,27 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _delete,
-                    icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
-                    label: const Text('Delete', style: TextStyle(color: Color(0xFFDC2626))),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFDC2626),
+                    ),
+                    label: const Text(
+                      'Delete',
+                      style: TextStyle(color: Color(0xFFDC2626)),
+                    ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.5),
-                      minimumSize: Size(double.infinity, access.minTapTargetSize),
+                      side: const BorderSide(
+                        color: Color(0xFFFCA5A5),
+                        width: 1.5,
+                      ),
+                      minimumSize: Size(
+                        double.infinity,
+                        access.minTapTargetSize,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
@@ -1297,12 +1619,17 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
                 child: ElevatedButton.icon(
                   onPressed: _submit,
                   icon: const Icon(Icons.save_rounded, color: Colors.white),
-                  label: const Text('Save Plan', style: TextStyle(color: Colors.white)),
+                  label: const Text(
+                    'Save Plan',
+                    style: TextStyle(color: Colors.white),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: access.primaryTeal,
                     minimumSize: Size(double.infinity, access.minTapTargetSize),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),

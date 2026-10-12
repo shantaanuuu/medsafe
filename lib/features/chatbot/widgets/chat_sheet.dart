@@ -6,6 +6,7 @@ import '../../../shared_states.dart';
 import '../../../shared_widgets.dart';
 import '../providers/chatbot_provider.dart';
 import '../models/chat_message.dart';
+import '../../../widgets/voice_transcribe_button.dart';
 
 class ChatSheet extends ConsumerStatefulWidget {
   const ChatSheet({super.key});
@@ -78,7 +79,7 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
     final messages = ref.watch(chatHistoryProvider);
     final isLoading = ref.watch(chatLoadingProvider);
     final activeScreen = ref.watch(currentScreenProvider);
-    
+
     final isElderlyMode = ref.watch(elderlyModeProvider);
     final access = AccessibilityConfig(isElderlyMode: isElderlyMode);
 
@@ -87,8 +88,8 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
     const Color tealColor = Color(0xFF0D9488); // MedSafe Teal Accent
     const Color bgLight = Color(0xFFF8FAFC);
 
-    final double sheetHeight = _isFullScreen 
-        ? MediaQuery.of(context).size.height * 0.9 
+    final double sheetHeight = _isFullScreen
+        ? MediaQuery.of(context).size.height * 0.9
         : MediaQuery.of(context).size.height * 0.65;
 
     // Trigger scroll to bottom on load
@@ -110,7 +111,9 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: access.borderColor.withOpacity(0.5)),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -168,7 +171,9 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
                           _isFullScreen = !_isFullScreen;
                         });
                       },
-                      tooltip: _isFullScreen ? 'Exit full screen' : 'Expand full screen',
+                      tooltip: _isFullScreen
+                          ? 'Exit full screen'
+                          : 'Expand full screen',
                     ),
                     // Clear Chat History Button
                     IconButton(
@@ -191,7 +196,9 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
                               ),
                               TextButton(
                                 onPressed: () {
-                                  ref.read(chatHistoryProvider.notifier).clearHistory();
+                                  ref
+                                      .read(chatHistoryProvider.notifier)
+                                      .clearHistory();
                                   Navigator.pop(context);
                                 },
                                 child: Text(
@@ -223,13 +230,21 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
                   ? _buildEmptyState(access, tealColor)
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                       itemCount: messages.length + (isLoading ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index == messages.length) {
                           return _buildTypingIndicator(access, primaryColor);
                         }
-                        return _buildMessageBubble(messages[index], access, primaryColor, tealColor);
+                        return _buildMessageBubble(
+                          messages[index],
+                          access,
+                          primaryColor,
+                          tealColor,
+                        );
                       },
                     ),
             ),
@@ -256,12 +271,18 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: VoiceInputField(
-                    access: access,
+                  child: TextField(
                     controller: _controller,
-                    labelText: 'Ask about MedSafe features...',
-                    icon: Icons.chat_bubble_outline_rounded,
-                    mockTranscript: _getRandomMockTranscript(),
+                    decoration: InputDecoration(
+                      hintText: 'Ask about MedSafe features...',
+                      prefixIcon: const Icon(Icons.chat_bubble_outline_rounded),
+                      suffixIcon: VoiceTranscribeButton(
+                        controller: _controller,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -342,7 +363,9 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
                 ),
                 backgroundColor: Colors.white,
                 side: BorderSide(color: tealColor.withOpacity(0.2)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 onPressed: () => _submitMessage(prompt),
               );
             }).toList(),
@@ -353,13 +376,19 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
   }
 
   Widget _buildMessageBubble(
-      ChatMessage message, AccessibilityConfig access, Color primaryColor, Color tealColor) {
+    ChatMessage message,
+    AccessibilityConfig access,
+    Color primaryColor,
+    Color tealColor,
+  ) {
     final isUser = message.isUser;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           if (!isUser) ...[
             Container(
@@ -369,7 +398,11 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
                 color: tealColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.support_agent_rounded, size: 18, color: tealColor),
+              child: Icon(
+                Icons.support_agent_rounded,
+                size: 18,
+                color: tealColor,
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -391,7 +424,9 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
                     offset: const Offset(0, 2),
                   ),
                 ],
-                border: isUser ? null : Border.all(color: access.borderColor.withOpacity(0.3)),
+                border: isUser
+                    ? null
+                    : Border.all(color: access.borderColor.withOpacity(0.3)),
               ),
               child: RichText(
                 text: TextSpan(
@@ -436,7 +471,11 @@ class _ChatSheetState extends ConsumerState<ChatSheet> {
               color: Color(0xFFE0F2FE),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.support_agent_rounded, size: 18, color: primaryColor),
+            child: Icon(
+              Icons.support_agent_rounded,
+              size: 18,
+              color: primaryColor,
+            ),
           ),
           const SizedBox(width: 8),
           Container(
@@ -486,25 +525,26 @@ List<TextSpan> _parseMarkdown(String text, TextStyle baseStyle) {
   for (final Match match in regex.allMatches(text)) {
     // Add plain text before match
     if (match.start > lastMatchEnd) {
-      spans.add(TextSpan(
-        text: text.substring(lastMatchEnd, match.start),
-        style: baseStyle,
-      ));
+      spans.add(
+        TextSpan(
+          text: text.substring(lastMatchEnd, match.start),
+          style: baseStyle,
+        ),
+      );
     }
     // Add bold text
-    spans.add(TextSpan(
-      text: match.group(1),
-      style: baseStyle.copyWith(fontWeight: FontWeight.bold),
-    ));
+    spans.add(
+      TextSpan(
+        text: match.group(1),
+        style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+      ),
+    );
     lastMatchEnd = match.end;
   }
 
   // Add remaining plain text
   if (lastMatchEnd < text.length) {
-    spans.add(TextSpan(
-      text: text.substring(lastMatchEnd),
-      style: baseStyle,
-    ));
+    spans.add(TextSpan(text: text.substring(lastMatchEnd), style: baseStyle));
   }
 
   return spans.isEmpty ? [TextSpan(text: text, style: baseStyle)] : spans;
