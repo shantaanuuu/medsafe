@@ -38,24 +38,93 @@ Set emergency=true only if dyspnea, wheezing, angioedema (face/tongue/throat swe
         raise RuntimeError("Could not analyse the allergy description.") from error
 
 
+
 def check_medicine_allergy_with_gemini(allergies, medicine_name, generic_name):
-    """Conservatively identify a potential, never confirmed, allergy conflict."""
+    """Screen for potential allergy conflicts without declaring a medicine safe."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "your_gemini_api_key_here":
-        raise RuntimeError("Gemini is not configured. Add GEMINI_API_KEY to the backend .env file.")
+        raise RuntimeError(
+            "Gemini is not configured. Add GEMINI_API_KEY to the backend .env file."
+        )
+
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-3.5-flash")
-        prompt = f'''Perform conservative medicine-allergy screening only. Do not diagnose, prescribe, or say a medicine is safe.
-Known allergy entries: {json.dumps(allergies)}
+
+        prompt = f'''Perform conservative medicine-allergy screening.
+Do not diagnose, prescribe, calculate a dose, or declare a medicine safe.
+
+Known allergy entries:
+{json.dumps(allergies, ensure_ascii=False)}
+
 Medicine brand: {medicine_name}
 Generic/ingredient information: {generic_name}
-Return STRICT JSON only: {{"potential_conflict": false, "matched_allergies": [], "message": "short cautious explanation"}}
-Set potential_conflict=true only if a listed allergy plausibly matches this medicine, its ingredient, or a closely related medicine family. When uncertain, set false.'''
-        return _parse_json_response(model.generate_content(prompt).text)
+
+Rules:
+- Check for plausible matches with the listed allergies, known ingredients,
+  and closely related medicine families.
+- Do not invent ingredients or assume that a brand name identifies the
+  complete ingredient list.
+- If the available information is insufficient, ambiguous, or uncertain,
+  return "inconclusive".
+- A negative screening result does not establish that a medicine is safe.
+- Do not recommend starting or stopping a prescribed medicine based only
+  on this screening.
+
+Return STRICT JSON only in exactly this shape:
+{{
+  "status": "potential_conflict | no_match_identified | inconclusive",
+  "potential_conflict": false,
+  "matched_allergies": [],
+  "message": "Short, cautious explanation"
+}}
+
+Set status to "potential_conflict" and potential_conflict to true when
+a plausible conflict is identified.
+Set status to "no_match_identified" only when the supplied information
+supports finding no plausible match.
+Set status to "inconclusive" when the information is insufficient or uncertain.
+For "inconclusive", potential_conflict must be false and the message must
+state that the result could not be determined.
+'''
+
+        response = model.generate_content(prompt)
+        result = _parse_json_response(response.text)
+
+        if not isinstance(result, dict):
+            raise ValueError("Invalid allergy screening response.")
+
+        valid_statuses = {
+            "potential_conflict",
+            "no_match_identified",
+            "inconclusive",
+        }
+        if result.get("status") not in valid_statuses:
+            raise ValueError("Unknown allergy screening status.")
+
+        if result["status"] == "potential_conflict":
+            result["potential_conflict"] = True
+        elif result["status"] in ("no_match_identified", "inconclusive"):
+            result["potential_conflict"] = False
+        else:
+            raise ValueError("Invalid allergy screening status.")
+
+        if not isinstance(result.get("matched_allergies"), list):
+            result["matched_allergies"] = []
+
+        if not isinstance(result.get("message"), str):
+            result["message"] = (
+                "The allergy screening result is uncertain. "
+                "Confirm with a pharmacist or doctor."
+            )
+
+        return result
+
     except Exception as error:
         print(f"GEMINI_SERVICE ERROR: medicine allergy check failed: {error}")
-        raise RuntimeError("Could not complete the medicine allergy check.") from error
+        raise RuntimeError(
+            "Could not complete the medicine allergy check."
+        ) from error
 
 
 def _parse_json_response(response_text):

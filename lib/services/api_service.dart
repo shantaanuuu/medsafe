@@ -10,7 +10,7 @@ import '../models/medication_log.dart';
 final apiServiceProvider = Provider<ApiService>((ref) {
   const baseUrl = String.fromEnvironment(
     'BACKEND_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000',
+    defaultValue: 'http://192.168.0.207:5000',
   );
   return ApiService(baseUrl: baseUrl);
 });
@@ -569,20 +569,39 @@ class ApiService {
         .toList();
   }
 
-  dynamic _responseData(http.Response response) {
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic> ||
-        response.statusCode < 200 ||
-        response.statusCode >= 300 ||
-        decoded['status'] != 'success') {
-      throw Exception(
-        decoded is Map
-            ? decoded['message']?.toString() ?? 'Request failed.'
-            : 'Request failed.',
-      );
-    }
-    return decoded['data'];
+
+dynamic _responseData(http.Response response) {
+  dynamic decoded;
+
+  try {
+    decoded = jsonDecode(response.body);
+  } catch (e) {
+    debugPrint('API RESPONSE: Invalid JSON');
+    debugPrint('HTTP STATUS: ${response.statusCode}');
+    debugPrint('RESPONSE BODY: ${response.body}');
+
+    throw Exception('The server returned an invalid response.');
   }
+
+  debugPrint('API HTTP STATUS: ${response.statusCode}');
+  debugPrint('API RESPONSE BODY: ${response.body}');
+
+  if (decoded is! Map<String, dynamic> ||
+      response.statusCode < 200 ||
+      response.statusCode >= 300 ||
+      decoded['status'] != 'success') {
+    final message = decoded is Map
+        ? decoded['message']?.toString() ?? 'Request failed.'
+        : 'Request failed.';
+
+    debugPrint('API REQUEST ERROR: $message');
+
+    throw Exception(message);
+  }
+
+  return decoded['data'];
+}
+
 }
 
 class InteractionAnalysis {
@@ -808,22 +827,34 @@ class AllergyRecord {
   );
 }
 
+
 class AllergyMedicineCheck {
   const AllergyMedicineCheck({
     required this.potentialConflict,
     required this.matchedAllergies,
     required this.message,
+    this.status = 'inconclusive',
   });
+
   final bool potentialConflict;
   final List<String> matchedAllergies;
   final String message;
-  factory AllergyMedicineCheck.fromJson(Map json) => AllergyMedicineCheck(
-    potentialConflict: json['potential_conflict'] == true,
-    matchedAllergies: (json['matched_allergies'] as List? ?? const [])
-        .map((x) => x.toString())
-        .toList(),
-    message: json['message']?.toString() ?? 'No result available.',
-  );
+  final String status;
+
+  factory AllergyMedicineCheck.fromJson(Map json) {
+    final potentialConflict = json['potential_conflict'] == true;
+    final responseStatus = json['status']?.toString();
+
+    return AllergyMedicineCheck(
+      potentialConflict: potentialConflict,
+      matchedAllergies: (json['matched_allergies'] as List? ?? const [])
+          .map((x) => x.toString())
+          .toList(),
+      message: json['message']?.toString() ?? 'No result available.',
+      status: responseStatus ??
+          (potentialConflict ? 'potential_conflict' : 'inconclusive'),
+    );
+  }
 }
 
 class SymptomAnalysisResult {

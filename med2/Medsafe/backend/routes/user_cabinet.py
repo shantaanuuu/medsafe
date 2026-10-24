@@ -156,6 +156,11 @@ def init_user_tables():
     if "nickname" not in profile_cols:
         cursor.execute("ALTER TABLE user_health_profiles ADD COLUMN nickname TEXT")
 
+    cursor.execute("PRAGMA table_info(dependents)")
+    dependent_cols = [col[1] for col in cursor.fetchall()]
+    if "date_of_birth" not in dependent_cols:
+        cursor.execute("ALTER TABLE dependents ADD COLUMN date_of_birth TEXT")
+
     conn.commit()
     conn.close()
     print("USER_CABINET: User tables ready.")
@@ -521,6 +526,7 @@ def get_dependents():
                 "current_medications": json.loads(r["current_medications"]) if r["current_medications"] else [],
                 "allergies": json.loads(r["allergies"]) if r["allergies"] else [],
                 "age": r["age"],
+                "date_of_birth": r["date_of_birth"],
                 "weight_kg": r["weight_kg"],
                 "sex": r["sex"],
                 "onboarding_step": 3,
@@ -545,6 +551,7 @@ def save_dependent():
     name = data.get("nickname") or data.get("name") or "Dependent"
     nickname = data.get("nickname")
     age = data.get("age")
+    date_of_birth = data.get("date_of_birth")
     weight_kg = data.get("weight_kg")
     sex = data.get("sex")
     
@@ -562,8 +569,8 @@ def save_dependent():
         cursor.execute("""
         INSERT INTO dependents (
             id, caregiver_uid, name, nickname, chronic_conditions, current_medications, allergies,
-            age, weight_kg, sex, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            age, date_of_birth, weight_kg, sex, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name=excluded.name,
             nickname=excluded.nickname,
@@ -571,12 +578,13 @@ def save_dependent():
             current_medications=excluded.current_medications,
             allergies=excluded.allergies,
             age=excluded.age,
+            date_of_birth=excluded.date_of_birth,
             weight_kg=excluded.weight_kg,
             sex=excluded.sex,
             updated_at=excluded.updated_at
         """, (
             dep_id, caregiver_uid, name, nickname, chronic_conditions, current_medications, allergies,
-            age, weight_kg, sex, now_str, now_str
+            age, date_of_birth, weight_kg, sex, now_str, now_str
         ))
         
         current_meds_list = data.get("current_medications", [])
