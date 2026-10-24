@@ -48,7 +48,7 @@ class _ReportAnalysisScreenState extends State<ReportAnalysisScreen> {
       final a = await ApiService(
         baseUrl: const String.fromEnvironment(
           'BACKEND_BASE_URL',
-          defaultValue: 'http://10.0.2.2:5000',
+          defaultValue: 'http://192.168.0.207:5000',
         ),
       ).analyseReport(source);
       final dir = await getApplicationDocumentsDirectory();

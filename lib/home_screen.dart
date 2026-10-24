@@ -19,6 +19,7 @@ import 'features/onboarding/onboarding_flow_screen.dart';
 import 'medicine_detail.dart';
 import 'services/pdf_report_service.dart';
 import 'report_analysis_screen.dart';
+import 'features/pediatrics/screens/pediatrics_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HomeScreen — Modern light-theme healthcare dashboard
@@ -966,6 +967,20 @@ class HomeScreen extends ConsumerWidget {
         onTap: (ctx) => Navigator.push(
           ctx,
           MaterialPageRoute(builder: (_) => const ManualSearchScreen()),
+        ),
+      ),
+
+      _QuickAction(
+        title: 'Pediatrics',
+        subtitle: 'Child health profiles',
+        icon: Icons.child_care_rounded,
+        iconColor: const Color(0xFF0891B2),
+        iconBgColor: const Color(0xFFCFFAFE),
+        onTap: (ctx) => Navigator.push(
+          ctx,
+          MaterialPageRoute(
+            builder: (_) => const PediatricsScreen(),
+          ),
         ),
       ),
       if (isCaregiver)

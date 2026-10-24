@@ -19,7 +19,7 @@ class CameraScreen extends StatefulWidget {
     this.backendBaseUrl = const String.fromEnvironment(
       'BACKEND_BASE_URL',
       defaultValue:
-          'http://10.0.2.2:5000', // Default to emulator loopback for Android
+          'http://192.168.0.207:5000', // Default to emulator loopback for Android
     ),
     this.prescriptionMode = false,
   });

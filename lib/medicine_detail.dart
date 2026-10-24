@@ -49,7 +49,7 @@ class MedicineDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isElderlyMode = ref.watch(elderlyModeProvider);
     final cabinet = ref.watch(cabinetProvider);
-    final profile = ref.watch(onboardingProfileProvider).value;
+    final profile = ref.watch(activeProfileProvider);
     final access = AccessibilityConfig(isElderlyMode: isElderlyMode);
 
     final interactions = _getMockInteractions(cabinet);
@@ -150,8 +150,11 @@ class MedicineDetailScreen extends ConsumerWidget {
                   _buildScheduleCard(context, ref, schedule, access),
                   const SizedBox(height: 24),
 
-                  if (profile != null && profile.allergies.isNotEmpty) ...[
-                    _buildAllergyCheck(ref, profile.allergies, access),
+                  if (profile != null) ...[
+                    if (profile.allergies.isNotEmpty)
+                      _buildAllergyCheck(ref, profile.allergies, access)
+                    else
+                      _buildNoSavedAllergiesNotice(access),
                     const SizedBox(height: 24),
                   ],
 
@@ -315,73 +318,153 @@ class MedicineDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAllergyCheck(
-    WidgetRef ref,
-    List<String> allergies,
-    AccessibilityConfig access,
-  ) {
-    return FutureBuilder<AllergyMedicineCheck>(
-      future: ref
-          .read(apiServiceProvider)
-          .checkMedicineAllergy(
-            allergies: allergies,
-            medicineName: medicine.name,
-            genericName: medicine.genericName,
-          ),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return const SizedBox.shrink();
-        if (!snapshot.hasData || !snapshot.data!.potentialConflict)
-          return const SizedBox.shrink();
-        final check = snapshot.data!;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF1F2),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFFDA4AF)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Color(0xFFBE123C)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Potential allergy conflict',
-                      style: access.getTextStyle(
-                        baseSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF9F1239),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      check.message,
-                      style: access.getTextStyle(
-                        baseSize: 13,
-                        color: const Color(0xFF9F1239),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Do not take this medicine without advice from a doctor or pharmacist.',
-                      style: access.getTextStyle(
-                        baseSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF9F1239),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+
+Widget _buildAllergyCheck(
+  WidgetRef ref,
+  List<String> allergies,
+  AccessibilityConfig access,
+) {
+  return FutureBuilder<AllergyMedicineCheck>(
+    future: ref.read(apiServiceProvider).checkMedicineAllergy(
+      allergies: allergies,
+      medicineName: medicine.name,
+      genericName: medicine.genericName,
+    ),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Padding(
+          padding: EdgeInsets.all(12),
+          child: Center(child: CircularProgressIndicator()),
         );
-      },
+      }
+
+      String title;
+      String message;
+      Color background;
+      Color border;
+      Color foreground;
+      IconData icon;
+
+      if (snapshot.hasError || !snapshot.hasData) {
+        title = 'Allergy check unavailable';
+        message =
+            'We could not complete the allergy check. This does not mean '
+            'the medicine is safe. Consult a doctor or pharmacist.';
+        background = const Color(0xFFFFF7ED);
+        border = const Color(0xFFFDBA74);
+        foreground = const Color(0xFF9A3412);
+        icon = Icons.error_outline;
+      } else {
+        final check = snapshot.data!;
+
+        if (check.potentialConflict || check.status == 'potential_conflict') {
+          title = 'Potential allergy conflict';
+          message = check.message;
+          background = const Color(0xFFFFF1F2);
+          border = const Color(0xFFFDA4AF);
+          foreground = const Color(0xFF9F1239);
+          icon = Icons.warning_amber_rounded;
+        }
+        else if (check.status == 'no_match_identified') {
+          title = 'No match identified';
+          message =
+              '${check.message}\n\nThis is not confirmation that the medicine '
+              'is safe. The check may not identify every allergy or ingredient.';
+          background = const Color(0xFFFFF7ED);
+          border = const Color(0xFFFDBA74);
+          foreground = const Color(0xFF9A3412);
+          icon = Icons.info_outline;
+        }
+        else {
+          title = 'Allergy check inconclusive';
+          message =
+              '${check.message}\n\nDo not interpret this result as confirmation '
+              'that the medicine is safe. Consult a doctor or pharmacist.';
+          background = const Color(0xFFFFF7ED);
+          border = const Color(0xFFFDBA74);
+          foreground = const Color(0xFF9A3412);
+          icon = Icons.info_outline;
+        }
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: foreground),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: access.getTextStyle(
+                      baseSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: access.getTextStyle(
+                      baseSize: 13,
+                      color: foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'For children, confirm the medicine and its ingredients '
+                    'with a healthcare professional before use.',
+                    style: access.getTextStyle(
+                      baseSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: foreground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+  Widget _buildNoSavedAllergiesNotice(AccessibilityConfig access) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        border: Border.all(color: Colors.orange),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Colors.orange),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'No allergies are saved for this profile. '
+              'This does not mean the medicine is safe or allergy-free. '
+              'Confirm allergies with the caregiver or healthcare professional.',
+              style: TextStyle(
+                fontSize: access.getTextStyle(baseSize: 13).fontSize,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

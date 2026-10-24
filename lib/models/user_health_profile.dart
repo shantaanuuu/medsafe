@@ -27,6 +27,7 @@ class UserHealthProfile {
   final String firebaseUid;
   final String role;
   final int? age;
+  final String? dateOfBirth;
   final double? weightKg;
   final String? sex;
   final List<String> chronicConditions;
@@ -43,6 +44,7 @@ class UserHealthProfile {
     required this.firebaseUid,
     required this.role,
     this.age,
+    this.dateOfBirth,
     this.weightKg,
     this.sex,
     required this.chronicConditions,
@@ -60,6 +62,7 @@ class UserHealthProfile {
     String? firebaseUid,
     String? role,
     int? age,
+    String? dateOfBirth,
     double? weightKg,
     String? sex,
     List<String>? chronicConditions,
@@ -76,6 +79,7 @@ class UserHealthProfile {
       firebaseUid: firebaseUid ?? this.firebaseUid,
       role: role ?? this.role,
       age: age ?? this.age,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       weightKg: weightKg ?? this.weightKg,
       sex: sex ?? this.sex,
       chronicConditions: chronicConditions ?? this.chronicConditions,
@@ -100,6 +104,7 @@ class UserHealthProfile {
       firebaseUid: json['firebase_uid'] as String? ?? json['firebaseUid'] as String? ?? '',
       role: json['role'] as String? ?? 'Patient',
       age: json['age'] as int?,
+      dateOfBirth: json['date_of_birth'] as String? ?? json['dateOfBirth'] as String?,
       weightKg: (json['weight_kg'] ?? json['weightKg'])?.toDouble(),
       sex: json['sex'] as String?,
       chronicConditions: List<String>.from(json['chronic_conditions'] ?? json['chronicConditions'] ?? []),
@@ -119,6 +124,7 @@ class UserHealthProfile {
       'firebase_uid': firebaseUid,
       'role': role,
       'age': age,
+      'date_of_birth': dateOfBirth,
       'weight_kg': weightKg,
       'sex': sex,
       'chronic_conditions': chronicConditions,

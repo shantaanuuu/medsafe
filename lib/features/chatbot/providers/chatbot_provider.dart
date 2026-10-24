@@ -90,7 +90,7 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
 
       const String baseUrl = String.fromEnvironment(
         'BACKEND_BASE_URL',
-        defaultValue: 'http://10.0.2.2:5000',
+        defaultValue: 'http://192.168.0.207:5000',
       );
 
       final uri = Uri.parse('$baseUrl/api/chatbot');

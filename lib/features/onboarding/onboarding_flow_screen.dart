@@ -62,6 +62,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   final TextEditingController _allergyController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+  final TextEditingController _dateOfBirthController = TextEditingController();
   String _selectedSex = 'Prefer not to say';
 
   final List<String> _sexOptions = [
@@ -88,6 +89,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
         _selectedAllergies.addAll(dep.allergies);
         if (dep.age != null) {
           _ageController.text = dep.age.toString();
+        }
+        if (dep.dateOfBirth != null) {
+        _dateOfBirthController.text = dep.dateOfBirth!;
         }
         if (dep.weightKg != null) {
           _weightController.text = dep.weightKg.toString();
@@ -139,6 +143,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     _medsSearchController.dispose();
     _allergyController.dispose();
     _ageController.dispose();
+    _dateOfBirthController.dispose();
     _weightController.dispose();
     super.dispose();
   }
@@ -271,6 +276,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
       final repo = ref.read(onboardingRepositoryProvider);
       final depId = widget.prefilledDependent?.id ?? 'dep_${DateTime.now().millisecondsSinceEpoch}';
+      final dateOfBirth = _dateOfBirthController.text.trim();
 
       final dependent = UserHealthProfile(
         id: depId,
@@ -278,6 +284,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
         role: 'Patient',
         nickname: _nicknameController.text.trim(),
         age: age,
+        dateOfBirth: dateOfBirth.isEmpty ? null : dateOfBirth,
         weightKg: weight,
         sex: isSkip ? null : _selectedSex,
         chronicConditions: _selectedConditions,
@@ -1025,6 +1032,50 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             style: access.getTextStyle(baseSize: 15.0, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
+          if (widget.isAddingDependent) ...[
+            TextFormField(
+              controller: _dateOfBirthController,
+              readOnly: true,
+              decoration: InputDecoration(
+                labelText: 'Date of Birth',
+                hintText: 'Select date of birth',
+                prefixIcon: const Icon(Icons.calendar_month_rounded),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onTap: () async {
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(1900),
+                  lastDate: DateTime.now(),
+                );
+
+                if (pickedDate != null) {
+                  final today = DateTime.now();
+
+                  int calculatedAge = today.year - pickedDate.year;
+
+                  if (today.month < pickedDate.month ||
+                      (today.month == pickedDate.month &&
+                          today.day < pickedDate.day)) {
+                    calculatedAge--;
+                  }
+
+                  setState(() {
+                    _dateOfBirthController.text =
+                        '${pickedDate.year.toString().padLeft(4, '0')}-'
+                        '${pickedDate.month.toString().padLeft(2, '0')}-'
+                        '${pickedDate.day.toString().padLeft(2, '0')}';
+
+                    _ageController.text = calculatedAge.toString();
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Age
           TextField(
