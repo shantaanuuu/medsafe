@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/chat_message.dart';
 import '../services/chat_storage_service.dart';
 import '../chatbot_system_prompt.dart';
+import '../../../services/api_service.dart';
 
 // Tracks current dynamic user screen context
 class CurrentScreenNotifier extends Notifier<String> {
@@ -88,10 +89,7 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
 
       final currentContext = ref.read(currentScreenProvider);
 
-      const String baseUrl = String.fromEnvironment(
-        'BACKEND_BASE_URL',
-        defaultValue: 'http://192.168.0.207:5000',
-      );
+      final String baseUrl = ref.read(apiServiceProvider).baseUrl;
 
       final uri = Uri.parse('$baseUrl/api/chatbot');
       final response = await http.post(
@@ -105,7 +103,7 @@ class ChatHistoryNotifier extends Notifier<List<ChatMessage>> {
           'history': historyPayload,
           'context': currentContext,
         }),
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Chatbot service error (status ${response.statusCode})');

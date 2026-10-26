@@ -1,17 +1,44 @@
-# medsafe
+# MedSafe 💊
 
-A new Flutter project.
+An intelligent medication management and safety assistant built with Flutter, Firebase, and Flask. MedSafe helps individuals and caregivers manage prescriptions, track drug recalls, schedule dose reminders, and receive proactive warnings before medicines expire.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🌟 Key Features
 
-A few resources to get you started if this is your first Flutter project:
+- **Blister & Box OCR Scanning**: Quick medicine package scanning to extract medicine names, expiry dates, and dosage details.
+- **Dose Reminder Alarms**: Exact daily medication reminders powered by `flutter_local_notifications` with high-priority audio alerts.
+- **Safety Expiry Alerts**: Proactive warnings before medications expire (at 7 days, 1 day, and on expiry day).
+- **Drug Recall & Batch Verification**: Safety checks against active drug recall advisories.
+- **Caregiver & Dependent Profiles**: Multi-profile management allowing caregivers to oversee and track schedules for family members.
+- **AI Health Assistant**: Integrated healthcare conversational assistant powered by Gemini.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🚀 Getting Started
+
+### 1. Prerequisites
+- **Flutter SDK**: `>=3.3.0`
+- **Python**: `>=3.10` (for the Flask backend)
+- **Android / iOS Device or Emulator**
+
+### 2. Backend Setup
+Navigate to the backend directory and start the Flask server:
+```bash
+cd med2/Medsafe/backend
+pip install -r requirements.txt
+python app.py
+```
+*The server starts on `http://0.0.0.0:5000`.*
+
+### 3. Running the App
+Run the Flutter app with your backend server URL:
+```bash
+flutter run --dart-define=BACKEND_BASE_URL=http://<YOUR_LOCAL_IP>:5000
+```
+*(You can also configure or change the backend IP at any time directly inside the app).*
+
+---
+
+## 🛡️ Contributors
+- Developed by the MedSafe Team.

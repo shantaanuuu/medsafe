@@ -8,6 +8,7 @@ import 'models/medication_schedule.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
 import 'services/api_service.dart';
+import 'services/notification_service.dart';
 
 class AddMedicineOcrScreen extends ConsumerStatefulWidget {
   final String? mockImageName;
@@ -177,13 +178,29 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Parse expiry date
+    // Parse expiry date (supports ISO YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, MM/YYYY)
     DateTime expiryDate;
-    try {
-      expiryDate = DateTime.parse(_expiryController.text);
-    } catch (_) {
-      // Default to 30 days if parse fails
-      expiryDate = DateTime.now().add(const Duration(days: 30));
+    final expText = _expiryController.text.trim();
+    final parsedExp = DateTime.tryParse(expText);
+    if (parsedExp != null) {
+      expiryDate = parsedExp;
+    } else {
+      final slashMatch = RegExp(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$').firstMatch(expText);
+      if (slashMatch != null) {
+        final d = int.parse(slashMatch.group(1)!);
+        final m = int.parse(slashMatch.group(2)!);
+        final y = int.parse(slashMatch.group(3)!);
+        expiryDate = DateTime(y, m, d);
+      } else {
+        final monthMatch = RegExp(r'^(\d{1,2})[/-](\d{4})$').firstMatch(expText);
+        if (monthMatch != null) {
+          final m = int.parse(monthMatch.group(1)!);
+          final y = int.parse(monthMatch.group(2)!);
+          expiryDate = DateTime(y, m, 28);
+        } else {
+          expiryDate = DateTime.now().add(const Duration(days: 30));
+        }
+      }
     }
 
     final double? quantity = double.tryParse(_quantityController.text.trim());
@@ -255,6 +272,32 @@ class _AddMedicineOcrScreenState extends ConsumerState<AddMedicineOcrScreen> {
 
       await ref.read(apiServiceProvider).saveSchedule(schedule);
       ref.invalidate(schedulesProvider);
+
+      // Schedule real alarms & notifications
+      try {
+        final notif = ref.read(notificationServiceProvider);
+        for (int i = 0; i < formattedTimes.length; i++) {
+          final timeStr = formattedTimes[i];
+          final alarmId = (newMed.id.hashCode + i).abs() % 100000;
+          await notif.scheduleDailyMedicationReminder(
+            id: alarmId,
+            medicineName: newMed.name,
+            timeString: timeStr,
+            dosageInstructions: 'Take scheduled dose of ${newMed.name}',
+          );
+        }
+
+        // Trigger immediate expiry warning (if <= 7 days) or schedule future reminder
+        final expiryAlertId = (newMed.id.hashCode + 8888).abs() % 100000;
+        await notif.checkAndScheduleExpiryAlert(
+          id: expiryAlertId,
+          medicineName: newMed.name,
+          expiryDate: newMed.expiryDate,
+          fireInstantIfUrgent: true,
+        );
+      } catch (notifErr) {
+        debugPrint('NOTIFICATION_SCHEDULING_ERROR: $notifErr');
+      }
     }
 
     if (mounted) {

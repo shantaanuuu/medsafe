@@ -9,6 +9,7 @@ import 'models/user_health_profile.dart';
 import 'models/medication_schedule.dart';
 import 'models/medication_log.dart';
 import 'services/onboarding_repository.dart';
+import 'services/notification_service.dart';
 import 'main.dart';
 import 'package:flutter/foundation.dart';
 
@@ -232,7 +233,12 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
     }
 
     // Trigger async SQL backend pull if user is logged in
-    Future.microtask(() => _syncFromBackend());
+    Future.microtask(() {
+      _syncFromBackend();
+      try {
+        ref.read(notificationServiceProvider).syncCabinetExpiries(localList);
+      } catch (_) {}
+    });
 
     return localList;
   }
@@ -278,6 +284,11 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
 
       state = localList;
       _saveToPrefs();
+
+
+      try {
+        ref.read(notificationServiceProvider).syncCabinetExpiries(localList);
+      } catch (_) {}
     } catch (e) {
       print("SQL CABINET SYNC ERROR: $e");
     }
@@ -293,7 +304,20 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
       state = [...state, med];
     }
     _saveToPrefs();
-    
+
+    // Automatically trigger immediate expiry warning if expiring soon, or schedule reminder
+    try {
+      final notif = ref.read(notificationServiceProvider);
+      final alertId = (med.id.hashCode + 8888).abs() % 100000;
+      notif.checkAndScheduleExpiryAlert(
+        id: alertId,
+        medicineName: med.name,
+        expiryDate: med.expiryDate,
+        fireInstantIfUrgent: true,
+      );
+    } catch (e) {
+      debugPrint('CABINET_NOTIFIER: Expiry alert check failed: $e');
+    }
     // Sync to backend SQLite
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -336,6 +360,13 @@ class CabinetNotifier extends Notifier<List<Medicine>> {
     state = state.where((m) => m.id != id).toList();
     _saveToPrefs();
 
+    // Cancel notifications for this medicine
+    try {
+      final notif = ref.read(notificationServiceProvider);
+      final alertId = (id.hashCode + 8888).abs() % 100000;
+      notif.cancel(alertId);
+      notif.cancel(alertId + 50000);
+    } catch (_) {}
     // Sync to backend SQLite
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -377,7 +408,12 @@ final schedulesProvider = FutureProvider.autoDispose<List<MedicationSchedule>>((
 
   final api = ref.watch(apiServiceProvider);
   try {
-    return await api.getSchedules(user.uid, dependentId: dependentId);
+    final list = await api.getSchedules(user.uid, dependentId: dependentId);
+    try {
+      final cabinetList = ref.read(cabinetProvider);
+      ref.read(notificationServiceProvider).syncSchedules(list, cabinetList);
+    } catch (_) {}
+    return list;
   } catch (e) {
     debugPrint("FETCH SCHEDULES ERROR: $e");
     return [];
@@ -426,21 +462,17 @@ final activeProfileProvider = NotifierProvider<ActiveProfileNotifier, UserHealth
 
 // All Profiles Provider: caregiver self-profile + all dependents
 final allProfilesProvider = FutureProvider<List<UserHealthProfile>>((ref) async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return [];
+  final caregiverProfile = ref.watch(onboardingProfileProvider).value;
+  if (caregiverProfile == null) return [];
 
-  final repo = ref.watch(onboardingRepositoryProvider);
-  final caregiverProfile = await repo.fetchProfile(user.uid);
-  final List<UserHealthProfile> profiles = [];
-  if (caregiverProfile != null) {
-    profiles.add(caregiverProfile);
-    if (caregiverProfile.role == 'Caregiver') {
-      try {
-        final deps = await repo.fetchDependents(user.uid);
-        profiles.addAll(deps);
-      } catch (e) {
-        debugPrint("ONBOARDING_PROVIDER: fetchDependents failed: $e");
-      }
+  final List<UserHealthProfile> profiles = [caregiverProfile];
+  if (caregiverProfile.role == 'Caregiver') {
+    try {
+      final repo = ref.read(onboardingRepositoryProvider);
+      final deps = await repo.fetchDependents(caregiverProfile.firebaseUid);
+      profiles.addAll(deps);
+    } catch (e) {
+      debugPrint("ONBOARDING_PROVIDER: fetchDependents failed: $e");
     }
   }
   return profiles;

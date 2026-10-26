@@ -54,7 +54,9 @@ med2/Medsafe/backend/models/*.joblib
 **/google-services.json
 **/GoogleService-Info.plist
 **/.env
+med2/Medsafe/backend/env
 .env
+med2/Medsafe/backend/env
 
 # Backend uploads
 med2/Medsafe/backend/uploads/

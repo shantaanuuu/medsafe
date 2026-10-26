@@ -10,6 +10,7 @@ import 'models/medication_schedule.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart';
 import 'services/api_service.dart';
+import 'services/notification_service.dart';
 import 'features/chatbot/widgets/chatbot_overlay.dart';
 import 'features/chatbot/providers/chatbot_provider.dart';
 
@@ -1374,6 +1375,23 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
       await widget.ref.read(apiServiceProvider).saveSchedule(schedule);
       widget.ref.invalidate(schedulesProvider);
 
+      // Schedule real recurring notification alarms
+      try {
+        final notif = widget.ref.read(notificationServiceProvider);
+        for (int i = 0; i < formattedTimes.length; i++) {
+          final timeStr = formattedTimes[i];
+          final alarmId = (widget.medicine.id.hashCode + i).abs() % 100000;
+          await notif.scheduleDailyMedicationReminder(
+            id: alarmId,
+            medicineName: widget.medicine.name,
+            timeString: timeStr,
+            dosageInstructions: 'Take scheduled dose of ${widget.medicine.name}',
+          );
+        }
+      } catch (notifErr) {
+        debugPrint('NOTIFICATION_SCHEDULING_ERROR: $notifErr');
+      }
+
       final updatedMedicine = widget.medicine.copyWith(
         dosageSchedule: '${_doseTimes.length} times/day',
       );
@@ -1411,6 +1429,17 @@ class _EditScheduleSheetBodyState extends State<_EditScheduleSheetBody> {
           .read(apiServiceProvider)
           .deleteSchedule(user.uid, widget.existing!.id);
       widget.ref.invalidate(schedulesProvider);
+
+      // Cancel scheduled alarms
+      try {
+        final notif = widget.ref.read(notificationServiceProvider);
+        for (int i = 0; i < 10; i++) {
+          final alarmId = (widget.medicine.id.hashCode + i).abs() % 100000;
+          await notif.cancel(alarmId);
+        }
+      } catch (cancelErr) {
+        debugPrint('NOTIFICATION_CANCEL_ERROR: $cancelErr');
+      }
 
       final updatedMedicine = widget.medicine.copyWith(dosageSchedule: null);
       await widget.ref

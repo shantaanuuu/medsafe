@@ -19,7 +19,7 @@ class OnboardingRepository {
     try {
       final uri = Uri.parse('$baseUrl/api/user/profile?uid=$uid');
       debugPrint('ONBOARDING_REPO: GET $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 404) {
         return null;
@@ -60,7 +60,7 @@ class OnboardingRepository {
           if (email != null) 'email': email,
           if (username != null) 'username': username,
         }),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Create draft profile failed with status: ${response.statusCode}');
@@ -93,7 +93,7 @@ class OnboardingRepository {
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode(profile.toJson()),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Update profile failed with status: ${response.statusCode}');
@@ -109,7 +109,7 @@ class OnboardingRepository {
     try {
       final uri = Uri.parse('$baseUrl/api/dependents?caregiver_uid=$caregiverUid');
       debugPrint('ONBOARDING_REPO: GET $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Fetch dependents failed with status: ${response.statusCode}');
@@ -142,7 +142,7 @@ class OnboardingRepository {
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode(dependent.toJson()),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Save dependent failed with status: ${response.statusCode}');
@@ -158,7 +158,7 @@ class OnboardingRepository {
     try {
       final uri = Uri.parse('$baseUrl/api/dependents/$dependentId?caregiver_uid=$caregiverUid');
       debugPrint('ONBOARDING_REPO: DELETE $uri');
-      final response = await http.delete(uri);
+      final response = await http.delete(uri).timeout(const Duration(seconds: 15));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('Delete dependent failed with status: ${response.statusCode}');

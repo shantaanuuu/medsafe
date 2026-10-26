@@ -361,11 +361,31 @@ def create_profile():
         cursor = conn.cursor()
         
         # Check if already exists
-        cursor.execute("SELECT id FROM user_health_profiles WHERE firebase_uid = ?", (uid,))
+        cursor.execute("SELECT * FROM user_health_profiles WHERE firebase_uid = ?", (uid,))
         existing = cursor.fetchone()
         if existing:
             conn.close()
-            return jsonify({"status": "success", "message": "Profile already exists", "data": {"id": existing["id"]}})
+            import json
+            return jsonify({
+                "status": "success",
+                "message": "Profile already exists",
+                "data": {
+                    "id": existing["id"],
+                    "firebase_uid": existing["firebase_uid"],
+                    "role": existing["role"],
+                    "age": existing["age"],
+                    "weight_kg": existing["weight_kg"],
+                    "sex": existing["sex"],
+                    "chronic_conditions": json.loads(existing["chronic_conditions"]) if existing["chronic_conditions"] else [],
+                    "current_medications": json.loads(existing["current_medications"]) if existing["current_medications"] else [],
+                    "allergies": json.loads(existing["allergies"]) if existing["allergies"] else [],
+                    "onboarding_step": existing["onboarding_step"],
+                    "onboarding_completed": bool(existing["onboarding_completed"]),
+                    "created_at": existing["created_at"],
+                    "updated_at": existing["updated_at"],
+                    "nickname": existing["nickname"]
+                }
+            })
             
         # Ensure user exists in users table or insert dummy
         cursor.execute("SELECT uid FROM users WHERE uid = ?", (uid,))
