@@ -45,12 +45,9 @@ class _ReportAnalysisScreenState extends State<ReportAnalysisScreen> {
     setState(() => loading = true);
     try {
       final source = File(picked!.files.single.path!);
-      final a = await ApiService(
-        baseUrl: const String.fromEnvironment(
-          'BACKEND_BASE_URL',
-          defaultValue: kDefaultBackendBaseUrl,
-        ),
-      ).analyseReport(source);
+      final prefs = await SharedPreferences.getInstance();
+      final currentBaseUrl = prefs.getString(kBackendBaseUrlKey) ?? kDefaultBackendBaseUrl;
+      final a = await ApiService(baseUrl: currentBaseUrl).analyseReport(source);
       final dir = await getApplicationDocumentsDirectory();
       final target = File(
         '${dir.path}/report_${DateTime.now().millisecondsSinceEpoch}.pdf',
@@ -68,7 +65,6 @@ class _ReportAnalysisScreenState extends State<ReportAnalysisScreen> {
         'questions': a.questions,
       };
       reports.insert(0, item);
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, jsonEncode(reports));
       if (mounted) setState(() {});
     } catch (e) {

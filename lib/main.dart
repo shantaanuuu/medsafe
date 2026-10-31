@@ -134,7 +134,7 @@ class AuthStateWrapper extends ConsumerWidget {
               TextField(
                 controller: controller,
                 decoration: InputDecoration(
-                  hintText: 'http://192.168.0.165:5000',
+                  hintText: 'http://10.230.141.96:5000',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   isDense: true,
                   prefixIcon: const Icon(Icons.link, size: 20),
@@ -151,10 +151,10 @@ class AuthStateWrapper extends ConsumerWidget {
                 runSpacing: 4,
                 children: [
                   ActionChip(
-                    label: const Text('192.168.0.165:5000 (Wi-Fi)'),
+                    label: const Text('10.230.141.96:5000 (Current Wi-Fi)'),
                     onPressed: () {
                       setState(() {
-                        controller.text = 'http://192.168.0.165:5000';
+                        controller.text = 'http://10.230.141.96:5000';
                       });
                     },
                   ),

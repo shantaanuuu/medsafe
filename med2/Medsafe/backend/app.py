@@ -11,6 +11,10 @@ from routes.nearby_healthcare import nearby_healthcare_bp
 from routes.prescription import prescription_bp
 from routes.report_analysis import report_analysis_bp
 
+import os
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(backend_dir, ".env"))
+load_dotenv(os.path.join(backend_dir, "env"))
 load_dotenv()
 
 app = Flask(__name__)

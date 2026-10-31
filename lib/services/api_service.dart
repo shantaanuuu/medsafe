@@ -9,7 +9,7 @@ import '../models/medication_log.dart';
 
 import '../shared_states.dart';
 
-const String kDefaultBackendBaseUrl = 'http://192.168.0.165:5000';
+const String kDefaultBackendBaseUrl = 'http://10.230.141.96:5000';
 const String kBackendBaseUrlKey = 'backend_base_url';
 const Duration kApiTimeout = Duration(seconds: 15);
 
@@ -22,7 +22,7 @@ class BackendUrlNotifier extends Notifier<String> {
       if (saved != null && saved.trim().isNotEmpty) {
         final trimmed = saved.trim();
         // Automatically overwrite stale/unreachable IPs from old test configs
-        if (trimmed.contains('192.168.1.100') || trimmed.contains('192.168.0.207')) {
+        if (trimmed.contains('192.168.1.100') || trimmed.contains('192.168.0.207') || trimmed.contains('192.168.0.165') || trimmed.contains('10.10.178.186')) {
           prefs.setString(kBackendBaseUrlKey, kDefaultBackendBaseUrl);
           return kDefaultBackendBaseUrl;
         }

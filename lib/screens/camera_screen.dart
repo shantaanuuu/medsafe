@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:image/image.dart' as img;
@@ -13,30 +14,29 @@ import '../services/api_service.dart';
 import '../services/camera_service.dart';
 import '../services/ocr_service.dart';
 
-class CameraScreen extends StatefulWidget {
+class CameraScreen extends ConsumerStatefulWidget {
   const CameraScreen({
     super.key,
-    this.backendBaseUrl = const String.fromEnvironment(
-      'BACKEND_BASE_URL',
-      defaultValue:
-          kDefaultBackendBaseUrl, // Default to emulator loopback for Android
-    ),
+    this.backendBaseUrl,
     this.prescriptionMode = false,
   });
 
-  final String backendBaseUrl;
+  final String? backendBaseUrl;
   final bool prescriptionMode;
 
   @override
-  State<CameraScreen> createState() => _CameraScreenState();
+  ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
+class _CameraScreenState extends ConsumerState<CameraScreen> {
   final CameraService _cameraService = CameraService();
   final OcrService _ocrService = OcrService();
   final GlobalKey _previewKey = GlobalKey();
 
-  late final ApiService _apiService;
+  ApiService get _apiService {
+    final String url = widget.backendBaseUrl ?? ref.read(backendBaseUrlProvider);
+    return ApiService(baseUrl: url);
+  }
 
   bool _isInitializing = true;
   bool _isProcessing = false;
@@ -46,7 +46,6 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void initState() {
     super.initState();
-    _apiService = ApiService(baseUrl: widget.backendBaseUrl);
     _prepareCamera();
   }
 
